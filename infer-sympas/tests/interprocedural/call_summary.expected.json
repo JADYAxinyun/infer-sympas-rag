@@ -1,0 +1,6 @@
+{
+  "function": "caller",
+  "criterion": "return",
+  "must_keep": [6, 7],
+  "summary_dependency": "callee.formal[0] -> caller.a"
+}

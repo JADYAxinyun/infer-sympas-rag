@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Secrets and local environments
+.env
+*.key
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Infer / OCaml build products
+infer-out/
+_build/
+_opam/
+*.cm[ioxa]
+
+# Experiments and caches
+experiments/results/
+logs/
+cache/
+models/
+datasets/
+*.bin
+*.pt
+*.safetensors

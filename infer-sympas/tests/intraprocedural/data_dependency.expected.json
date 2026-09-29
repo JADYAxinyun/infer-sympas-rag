@@ -1,0 +1,6 @@
+{
+  "function": "foo",
+  "criterion": "return",
+  "must_keep": [3, 4],
+  "must_exclude": [2]
+}
