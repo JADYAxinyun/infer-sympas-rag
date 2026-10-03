@@ -13,9 +13,11 @@ __pycache__/
 
 # Infer / OCaml build products
 infer-out/
+sympas-out*/
 _build/
 _opam/
 *.cm[ioxa]
+*.o
 
 # Experiments and caches
 experiments/results/

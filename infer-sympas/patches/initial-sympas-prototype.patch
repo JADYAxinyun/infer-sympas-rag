@@ -1,0 +1,145 @@
+diff --git a/infer/src/backend/registerCheckers.ml b/infer/src/backend/registerCheckers.ml
+index d4277032d4..6d241308a2 100644
+--- a/infer/src/backend/registerCheckers.ml
++++ b/infer/src/backend/registerCheckers.ml
+@@ -84,6 +84,7 @@ let all_checkers =
+   (* The order of the list is important for those checkers that depend on other checkers having run
+      before them. *)
+   [ {checker= SelfInBlock; callbacks= [(intraprocedural SelfInBlock.checker, Clang)]}
++  ; {checker= SymPas; callbacks= [(intraprocedural Sympas.checker, Clang)]}
+   ; { checker= ParameterNotNullChecked
+     ; callbacks= [(intraprocedural ParameterNotNullChecked.checker, Clang)] }
+   ; { checker= StaticConstructorStallChecker
+diff --git a/infer/src/base/Checker.ml b/infer/src/base/Checker.ml
+index 52b9f1c86d..ad7e1f5090 100644
+--- a/infer/src/base/Checker.ml
++++ b/infer/src/base/Checker.ml
+@@ -36,6 +36,7 @@ type t =
+   | SIOF
+   | ScopeLeakage
+   | SelfInBlock
++  | SymPas
+   | Starvation
+   | SwiftObjCNullability
+   | Topl
+@@ -326,6 +327,14 @@ let config_unsafe checker =
+       ; cli_flags= Some {deprecated= []; show_in_help= false}
+       ; enabled_by_default= false
+       ; activates= [] }
++  | SymPas ->
++      { id= "sympas"
++      ; kind= UserFacing {title= "SymPas"; markdown_body= "Experimental symbolic program slicing."}
++      ; support= mk_support_func ~clang:ExperimentalSupport ()
++      ; short_documentation= "Experimental symbolic program slicing prototype."
++      ; cli_flags= Some {deprecated= []; show_in_help= true}
++      ; enabled_by_default= false
++      ; activates= [] }
+   | ScopeLeakage ->
+       { id= "scope-leakage"
+       ; kind= UserFacing {title= "Scope Leakage"; markdown_body= ""}
+diff --git a/infer/src/base/Checker.mli b/infer/src/base/Checker.mli
+index 8c74418e00..3cd77ce008 100644
+--- a/infer/src/base/Checker.mli
++++ b/infer/src/base/Checker.mli
+@@ -35,6 +35,7 @@ type t =
+   | SIOF
+   | ScopeLeakage
+   | SelfInBlock
++  | SymPas
+   | Starvation
+   | SwiftObjCNullability
+   | Topl
+diff --git a/infer/src/base/IssueType.ml b/infer/src/base/IssueType.ml
+index 1d2e975f13..ca05d5ca09 100644
+--- a/infer/src/base/IssueType.ml
++++ b/infer/src/base/IssueType.ml
+@@ -659,6 +659,11 @@ let lab_resource_leak =
+     ~user_documentation:"Toy issue."
+ 
+ 
++let sympas_slice =
++  register ~category:NoCategory ~id:"SYMPAS_SLICE" Info SymPas
++    ~user_documentation:"Variables collected by the experimental SymPas prototype."
++
++
+ let lock_consistency_violation =
+   register Warning ~id:"LOCK_CONSISTENCY_VIOLATION" ~category:Concurrency RacerD
+     ~user_documentation:[%blob "./documentation/issues/LOCK_CONSISTENCY_VIOLATION.md"]
+diff --git a/infer/src/base/IssueType.mli b/infer/src/base/IssueType.mli
+index 5bddd4f51a..4be370e300 100644
+--- a/infer/src/base/IssueType.mli
++++ b/infer/src/base/IssueType.mli
+@@ -209,6 +209,8 @@ val ipc_on_ui_thread : t
+ 
+ val lab_resource_leak : t
+ 
++val sympas_slice : t
++
+ val lockless_violation : t
+ 
+ val lock_consistency_violation : t
+diff --git a/infer/src/checkers/sympas.ml b/infer/src/checkers/sympas.ml
+new file mode 100644
+index 0000000000..94ce050e01
+--- /dev/null
++++ b/infer/src/checkers/sympas.ml
+@@ -0,0 +1,59 @@
++(*
++ * Initial SymPas prototype.
++ *
++ * This milestone collects variables read by SIL instructions in one procedure.
++ * It intentionally does not yet compute backward slices, control dependencies,
++ * or interprocedural summaries.
++ *)
++
++open! IStd
++module F = Format
++
++module VarSet = AbstractDomain.FiniteSet (Var)
++
++module Domain = struct
++  include VarSet
++
++  let initial = bottom
++end
++
++(** Add all temporary variables read by [exp] to the current state. *)
++let add_exp_vars exp state =
++  Exp.free_vars exp
++  |> Sequence.fold ~init:state ~f:(fun state id -> Domain.add (Var.of_id id) state)
++
++(** Minimal intraprocedural traversal over SIL instructions. *)
++module TransferFunctions (CFG : ProcCfg.S) = struct
++  module CFG = CFG
++  module Domain = Domain
++
++  type analysis_data = Procdesc.t
++
++  let exec_instr state _ _ _ (instr : Sil.instr) =
++    List.fold (Sil.exps_of_instr instr) ~init:state ~f:(fun state exp -> add_exp_vars exp state)
++
++
++  let pp_session_name _node fmt = F.pp_print_string fmt "SymPas variable collection"
++end
++
++module CFG = ProcCfg.Normal
++module Analyzer = AbstractInterpreter.MakeRPO (TransferFunctions (CFG))
++
++(** Run the first SymPas prototype on one procedure.
++
++    Registration and reporting are added only after this module compiles. *)
++let collect_variables proc_desc =
++  let cfg = CFG.from_pdesc proc_desc in
++  Analyzer.exec_cfg cfg proc_desc ~initial:Domain.initial
++
++
++let checker {IntraproceduralAnalysis.proc_desc; err_log} =
++  match Analyzer.compute_post proc_desc ~initial:Domain.initial proc_desc with
++  | None ->
++      ()
++  | Some variables when Domain.is_bottom variables ->
++      ()
++  | Some variables ->
++      let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
++      let message = F.asprintf "SymPas prototype collected variables: %a" Domain.pp variables in
++      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message
