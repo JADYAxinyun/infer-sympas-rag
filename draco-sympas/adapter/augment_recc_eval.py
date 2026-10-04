@@ -8,9 +8,9 @@ from python_slice import slice_source
 
 def main():
     if len(sys.argv) != 5:
-        print(f"usage: {Path(sys.argv[0]).name} METADATA.jsonl SOURCE_ROOT PROMPTS.jsonl OUTPUT.jsonl", file=sys.stderr)
+        print(f"usage: {Path(sys.argv[0]).name} METADATA.jsonl PROMPTS.jsonl OUTPUT.jsonl", file=sys.stderr)
         return 2
-    metadata, source_root, prompts, output = map(Path, sys.argv[1:])
+    metadata, prompts, output = map(Path, sys.argv[1:])
     items = [json.loads(line) for line in metadata.open()]
     with prompts.open() as src, output.open("w") as dst:
         for item, prompt_line in zip(items, src):
