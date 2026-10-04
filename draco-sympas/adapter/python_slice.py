@@ -4,7 +4,10 @@
 This is an integration baseline, not a replacement for Infer-SymPas.
 """
 import ast
+import io
 import json
+import keyword
+import tokenize
 import sys
 from pathlib import Path
 
@@ -30,8 +33,25 @@ def parse_prefix(source):
     raise last_error
 
 
+def token_fallback(source):
+    visible = set()
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+        for token in tokens:
+            if token.type == tokenize.NAME and not keyword.iskeyword(token.string):
+                visible.add(token.string)
+    except (tokenize.TokenError, IndentationError):
+        pass
+    lines = source.splitlines()
+    last = next((i for i in range(len(lines), 0, -1) if lines[i - 1].strip()), 0)
+    return ([last] if last else []), sorted(visible)
+
+
 def slice_source(source):
-    tree = parse_prefix(source)
+    try:
+        tree = parse_prefix(source)
+    except (SyntaxError, IndentationError):
+        return token_fallback(source)
     statements = [n for n in ast.walk(tree) if isinstance(n, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return))]
     statements.sort(key=lambda n: n.lineno)
     needed = set()
