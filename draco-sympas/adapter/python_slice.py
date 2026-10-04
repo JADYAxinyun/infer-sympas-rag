@@ -13,8 +13,21 @@ def names(node):
     return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
 
 
+def parse_prefix(source):
+    candidates = [source, source + "\npass"]
+    if source.rstrip().endswith("."):
+        candidates.append(source.rstrip() + "__completion__")
+    last_error = None
+    for candidate in candidates:
+        try:
+            return ast.parse(candidate)
+        except SyntaxError as error:
+            last_error = error
+    raise last_error
+
+
 def slice_source(source):
-    tree = ast.parse(source)
+    tree = parse_prefix(source)
     statements = [n for n in ast.walk(tree) if isinstance(n, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return))]
     statements.sort(key=lambda n: n.lineno)
     needed = set()
