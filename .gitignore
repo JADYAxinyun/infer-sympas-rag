@@ -32,3 +32,5 @@ datasets/
 .sympas-benchmark-out/
 
 draco-sympas/.venv/
+
+draco-sympas/artifacts/
