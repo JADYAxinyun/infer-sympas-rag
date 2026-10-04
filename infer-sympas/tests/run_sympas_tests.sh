@@ -36,3 +36,4 @@ run_case control_dependency unrelated_branch.c "frontier={ x, flag }" "path_cond
 run_case interprocedural call_summary.c "frontier={ a }" "line 6, column 15" "line 7, column 5"
 run_case interprocedural recursive_summary.c "frontier={ x }" "line 2" "line 4"
 run_case interprocedural mutual_recursion.c "frontier={ value }" "line 4" "line 10" "line 14"
+run_case interprocedural global_summary.c "frontier={ shared_value }" "candidate summary: {shared_value}" "line 4" "line 8"

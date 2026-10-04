@@ -1,0 +1,5 @@
+{
+  "function": "read_global",
+  "criterion": "return",
+  "summary_dependency": "global shared_value"
+}
