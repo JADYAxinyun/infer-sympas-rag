@@ -1,0 +1,6 @@
+{
+  "function": "read_array",
+  "criterion": "return",
+  "must_keep": [2, 3],
+  "frontier": ["arr", "index", "value"]
+}
