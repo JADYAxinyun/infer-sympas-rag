@@ -21,7 +21,7 @@ def main():
                 facts = ("\n\n# Static facts from Python slice\n"
                          f"- slice lines: {lines}\n"
                          f"- dependency frontier: {frontier}\n")
-            except SyntaxError:
+            except (SyntaxError, AttributeError, ValueError):
                 facts = "\n\n# Static facts from Python slice\n- unavailable: input prefix is not parseable alone\n"
             dst.write(json.dumps(prompt + facts, ensure_ascii=False) + "\n")
     return 0
