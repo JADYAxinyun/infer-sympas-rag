@@ -30,3 +30,5 @@ datasets/
 *.safetensors
 
 .sympas-benchmark-out/
+
+draco-sympas/.venv/
