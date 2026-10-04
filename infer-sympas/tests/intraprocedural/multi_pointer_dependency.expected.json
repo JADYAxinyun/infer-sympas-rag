@@ -1,0 +1,6 @@
+{
+  "function": "multi_pointer",
+  "criterion": "return",
+  "must_keep": [2, 3],
+  "frontier": ["ptr", "value"]
+}
