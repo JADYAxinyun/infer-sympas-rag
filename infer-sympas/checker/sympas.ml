@@ -166,10 +166,23 @@ let collect_dependencies analysis_data =
   Analyzer.compute_post analysis_data ~initial:(Domain.singleton return_var) proc_desc
 
 let formal_summary proc_desc {Domain.frontier} =
-  Procdesc.get_pvar_formals proc_desc
-  |> List.filter_mapi ~f:(fun index (pvar, _) ->
-         if VarSet.mem (Var.of_pvar pvar) frontier then Some index else None)
-  |> SymPasDomain.of_formal_indices
+  let formals =
+    Procdesc.get_pvar_formals proc_desc
+    |> List.filter_mapi ~f:(fun index (pvar, _) ->
+           if VarSet.mem (Var.of_pvar pvar) frontier then Some (SymPasDomain.Formal index) else None)
+  in
+  let globals =
+    VarSet.elements frontier
+    |> List.fold ~init:[] ~f:(fun globals var ->
+           if Var.is_global var then
+             match Var.get_pvar var with
+             | Some pvar ->
+                 let name = F.asprintf "%a" Mangled.pp (Pvar.get_name pvar) in
+                 SymPasDomain.Global name :: globals
+             | None -> globals
+           else globals )
+  in
+  {SymPasDomain.dependencies= List.dedup_and_sort (formals @ globals) ~compare:SymPasDomain.compare_dependency}
 
 let precise_control_locations proc_desc {Domain.slice_locations} =
   let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
