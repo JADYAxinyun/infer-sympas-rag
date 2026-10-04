@@ -74,7 +74,10 @@ let add_exp_vars exp state =
     |> Sequence.fold ~init:state ~f:(fun state id -> Domain.add_var (Var.of_id id) state)
   in
   Exp.program_vars exp
-  |> Sequence.fold ~init:state ~f:(fun state pvar -> Domain.add_var (Var.of_pvar pvar) state)
+    |> Sequence.fold ~init:state ~f:(fun state pvar -> Domain.add_var (Var.of_pvar pvar) state)
+
+let add_actuals actuals state =
+  List.fold actuals ~init:state ~f:(fun state (actual, _) -> add_exp_vars actual state)
 
 (** Intraprocedural backward traversal over SIL instructions. *)
 module TransferFunctions (CFG : ProcCfg.S) = struct
@@ -91,6 +94,12 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     match instr with
     | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
         state |> add_exp_vars condition |> Domain.add_location loc
+    | Sil.Call ((ret_id, _), _callee, actuals, loc, _)
+      when Domain.mem (Var.of_id ret_id) state ->
+        state
+        |> Domain.remove_var (Var.of_id ret_id)
+        |> add_actuals actuals
+        |> Domain.add_location loc
     | Sil.Load {id; e= rhs; _} when Domain.mem (Var.of_id id) state ->
         state |> Domain.remove_var (Var.of_id id) |> add_exp_vars rhs
     | Sil.Store {e1= Exp.Lvar lhs; e2= rhs; loc; _} when Domain.mem (Var.of_pvar lhs) state ->
