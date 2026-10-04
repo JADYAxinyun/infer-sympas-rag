@@ -84,18 +84,35 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
   module CFG = CFG
   module Domain = Domain
 
-  type analysis_data = Procdesc.t
+  type analysis_data = SymPasDomain.summary InterproceduralAnalysis.t
 
   (** A backward dependency transfer.
 
       If the slicing frontier contains the result of an assignment, replace it
       with the variables read by its right-hand side. *)
-  let exec_instr state _ _ _ (instr : Sil.instr) =
+  let exec_instr state {InterproceduralAnalysis.analyze_dependency; _} _ _
+      (instr : Sil.instr) =
     match instr with
     | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
         state |> add_exp_vars condition |> Domain.add_location loc
     | Sil.Call ((ret_id, _), callee, actuals, loc, _)
       when Domain.mem (Var.of_id ret_id) state ->
+        let state =
+          match callee with
+          | Exp.Const (Const.Cfun callee_pname) -> (
+              match analyze_dependency callee_pname with
+              | Ok summary ->
+                  List.fold summary.SymPasDomain.dependencies ~init:state ~f:(fun state dependency ->
+                      match dependency with
+                      | SymPasDomain.Formal index ->
+                          Option.value_map (List.nth actuals index) ~default:state
+                            ~f:(fun (actual, _) -> add_exp_vars actual state)
+                      | SymPasDomain.Global _ -> state )
+              | Error _ ->
+                  state )
+          | _ ->
+              state
+        in
         state
         |> Domain.remove_var (Var.of_id ret_id)
         |> add_exp_vars callee
@@ -119,9 +136,10 @@ module CFG = ProcCfg.OneInstrPerNode (ProcCfg.Backward (ProcCfg.Exceptional))
 module Analyzer = AbstractInterpreter.MakeRPO (TransferFunctions (CFG))
 
 (** Run the first SymPas prototype on one procedure. *)
-let collect_dependencies proc_desc =
+let collect_dependencies analysis_data =
+  let proc_desc = analysis_data.InterproceduralAnalysis.proc_desc in
   let return_var = Var.of_pvar (Procdesc.get_ret_var proc_desc) in
-  Analyzer.compute_post proc_desc ~initial:(Domain.singleton return_var) proc_desc
+  Analyzer.compute_post analysis_data ~initial:(Domain.singleton return_var) proc_desc
 
 let formal_summary proc_desc {Domain.frontier} =
   Procdesc.get_pvar_formals proc_desc
@@ -130,8 +148,8 @@ let formal_summary proc_desc {Domain.frontier} =
   |> SymPasDomain.of_formal_indices
 
 
-let checker {InterproceduralAnalysis.proc_desc; err_log} =
-  match collect_dependencies proc_desc with
+let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
+  match collect_dependencies analysis_data with
   | None ->
       None
   | Some variables when Domain.is_bottom variables ->
