@@ -19,3 +19,5 @@ cd third_party/draco-upstream/src
 已使用 `gpt35` 配置完成 6461 条 ReccEval Prompt 生成（仅生成上下文，不调用模型 API）。
 - Prompt 输出保存在本地 `draco-sympas/artifacts/`，不提交到 GitHub。
 - 尚未完成代码模型推理和论文指标复现。下一步接入 Infer-SymPas 的 `report.json`。
+
+最近一次运行统计：6461 条 Prompt 中有 3755 条生成了非空 Python 切片事实。其余样本通常是代码前缀无法确定切片准则，不能直接当作分析失败。
