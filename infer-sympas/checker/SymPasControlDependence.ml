@@ -29,3 +29,12 @@ let compute_postdominators proc_desc =
     else iterate next
   in
   iterate (List.fold nodes ~init:NodeMap.empty ~f:(fun result node -> NodeMap.add node (initial node) result))
+
+let controls postdominators ~branch ~target =
+  let branch_postdom = NodeMap.find branch postdominators in
+  let target_is_postdominated_by_branch = NodeSet.mem target branch_postdom in
+  let target_is_postdominated_by_successor =
+    Node.get_succs branch
+    |> List.exists ~f:(fun successor -> NodeSet.mem target (NodeMap.find successor postdominators))
+  in
+  (not target_is_postdominated_by_branch) && target_is_postdominated_by_successor
