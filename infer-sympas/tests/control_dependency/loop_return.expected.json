@@ -1,0 +1,6 @@
+{
+  "function": "loop_return",
+  "criterion": "return",
+  "must_keep": [2, 3, 4, 5, 6, 7],
+  "frontier": ["x", "result"]
+}
