@@ -203,7 +203,19 @@ let precise_control_locations proc_desc {Domain.slice_locations} =
                   locations )
         else locations )
   in
-  controlled_prunes
+  if not (LocationSet.is_bottom controlled_prunes) then controlled_prunes
+  else
+    (* Some frontend CFGs collapse the return criterion into the exit node and
+       do not expose a usable post-dominator edge. Keep branch locations that
+       are already part of the backward slice as a conservative fallback. *)
+    List.fold nodes ~init:LocationSet.bottom ~f:(fun locations node ->
+        Instrs.fold (Procdesc.Node.get_instrs node) ~init:locations ~f:(fun locations instr ->
+            match instr with
+            | Sil.Prune (_, loc, _, _) ->
+                let loc_string = F.asprintf "%a" Location.pp loc in
+                if LocationSet.mem loc_string slice_locations then LocationSet.add loc_string locations
+                else locations
+            | _ -> locations ) )
 
 
 let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
