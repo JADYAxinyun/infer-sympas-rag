@@ -178,11 +178,19 @@ let precise_control_locations proc_desc {Domain.slice_locations} =
     let location = F.asprintf "%a" Location.pp (Procdesc.Node.get_loc node) in
     LocationSet.mem location slice_locations
   in
+  (* The slicing criterion is the procedure return. Its exit node may not have
+     an explicit source location in [slice_locations], so include it as a
+     synthetic target when the backward slice is non-empty. *)
+  let is_controlled_target node =
+    is_slice_node node
+    || (phys_equal node (Procdesc.get_exit_node proc_desc)
+       && not (LocationSet.is_bottom slice_locations))
+  in
   let controlled_prunes =
     List.fold nodes ~init:LocationSet.bottom ~f:(fun locations branch ->
         let controls_slice_node =
           List.exists nodes ~f:(fun target ->
-              is_slice_node target
+              is_controlled_target target
               && SymPasControlDependence.controls postdominators ~branch ~target)
         in
         if controls_slice_node then
