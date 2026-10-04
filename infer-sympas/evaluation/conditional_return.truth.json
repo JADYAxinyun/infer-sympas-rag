@@ -1,0 +1,1 @@
+[{"case":"control_dependency/conditional_return.c","function":"check","criterion":"return","expected_locations":[{"line":2,"column":9,"reason":"control-dependency"},{"line":3,"column":9,"reason":"control-dependent-return"},{"line":4,"column":5,"reason":"criterion"}],"expected_path_conditions":["x < 0","!(x < 0)"]}]
