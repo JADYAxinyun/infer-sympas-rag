@@ -94,10 +94,11 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     match instr with
     | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
         state |> add_exp_vars condition |> Domain.add_location loc
-    | Sil.Call ((ret_id, _), _callee, actuals, loc, _)
+    | Sil.Call ((ret_id, _), callee, actuals, loc, _)
       when Domain.mem (Var.of_id ret_id) state ->
         state
         |> Domain.remove_var (Var.of_id ret_id)
+        |> add_exp_vars callee
         |> add_actuals actuals
         |> Domain.add_location loc
     | Sil.Load {id; e= rhs; _} when Domain.mem (Var.of_id id) state ->
