@@ -1,0 +1,6 @@
+{
+  "function": "update_global",
+  "criterion": "return",
+  "must_keep": [4, 5],
+  "frontier": ["shared_value", "x"]
+}
