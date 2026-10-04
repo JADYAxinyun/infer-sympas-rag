@@ -1,0 +1,4 @@
+[
+  {"case":"interprocedural/call_summary.c","function":"callee","criterion":"return","expected_locations":[{"line":2,"column":12,"reason":"callee-control"}]},
+  {"case":"interprocedural/call_summary.c","function":"caller","criterion":"return","expected_locations":[{"line":6,"column":15,"reason":"call-summary"},{"line":6,"column":5,"reason":"call-result"},{"line":7,"column":5,"reason":"criterion"}]}
+]
