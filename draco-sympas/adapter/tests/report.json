@@ -1,0 +1,1 @@
+[{"file":"conditional_return.c","procedure":"check","qualifier":"frontier={ x }; slice_locations={ line 2 }; path_conditions={ x < 0 }; candidate summary: {formal[0]}; precise control locations: { line 2 }"}]

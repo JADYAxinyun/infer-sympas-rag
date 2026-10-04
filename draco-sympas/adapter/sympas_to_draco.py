@@ -15,7 +15,10 @@ def fact_block(items):
         q=item.get('qualifier','')
         for label, pattern in [('dependency frontier',r'frontier=(.*?); slice_locations='),('path conditions',r'path_conditions=(.*?)}; candidate summary'),('callee summary',r'candidate summary: (.*?); precise control locations')]:
             m=re.search(pattern,q,re.S)
-            if m: lines.append(f"- {label}: {m.group(1).strip()}")
+            if m: value=m.group(1).strip()
+            if label == 'path conditions' and not value.endswith('}'):
+                value += '}'
+            lines.append(f"- {label}: {value}")
     return '\n'.join(lines)
 
 def main():
