@@ -16,6 +16,14 @@ third_party/draco-upstream/
 git submodule update --init --recursive
 ```
 
+## 一键运行
+
+```bash
+python draco-sympas/run_pipeline.py
+```
+
+该命令要求先生成 `artifacts/draco-prompts.jsonl`，然后自动生成 SymPas 增强 Prompt。
+
 ## 当前状态
 
 - 已接入 DRaCo 官方仓库作为上游依赖；
