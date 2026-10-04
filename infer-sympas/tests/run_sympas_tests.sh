@@ -22,5 +22,6 @@ run_case() {
 }
 
 run_case intraprocedural data_dependency.c "frontier={ x }" "line 3, column 5" "line 4, column 5"
+run_case intraprocedural field_dependency.c "frontier={ x, box }" "line 6" "line 7"
 run_case control_dependency conditional_return.c "frontier={ x }" "line 2, column 9" "line 3, column 9"
 run_case interprocedural call_summary.c "frontier={ a }" "line 6, column 15" "line 7, column 5"

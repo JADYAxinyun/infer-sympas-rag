@@ -1,0 +1,6 @@
+{
+  "function": "read_box",
+  "criterion": "return",
+  "must_keep": [6, 7],
+  "frontier": ["x", "box"]
+}
