@@ -1,3 +1,67 @@
+diff --git a/infer/src/backend/Payloads.ml b/infer/src/backend/Payloads.ml
+index 47a0b1e582..7d72fe881a 100644
+--- a/infer/src/backend/Payloads.ml
++++ b/infer/src/backend/Payloads.ml
+@@ -18,6 +18,7 @@ type t =
+   ; disjunctive_demo: DisjunctiveDemo.domain SafeLazy.t option
+   ; static_constructor_stall_checker: StaticConstructorStallChecker.Summary.t SafeLazy.t option
+   ; lab_resource_leaks: ResourceLeakDomain.summary SafeLazy.t option
++  ; sympas: SymPasDomain.summary SafeLazy.t option
+   ; litho_required_props: LithoDomain.summary SafeLazy.t option
+   ; pulse: PulseSummary.t SafeLazy.t option
+   ; purity: PurityDomain.summary SafeLazy.t option
+@@ -70,6 +71,7 @@ let all_fields =
+     ~purity:(fun f -> mk f Purity PurityDomain.pp_summary)
+     ~racerd:(fun f -> mk f RacerD RacerDDomain.pp_summary)
+     ~lab_resource_leaks:(fun f -> mk f LabResourceLeaks ResourceLeakDomain.pp)
++    ~sympas:(fun f -> mk f SymPas SymPasDomain.pp_summary)
+     ~scope_leakage:(fun f -> mk f ScopeLeakage ScopeLeakage.Summary.pp)
+     ~siof:(fun f -> mk f SIOF SiofDomain.Summary.pp)
+     ~lineage:(fun f -> mk f Lineage Lineage.Summary.pp)
+@@ -108,6 +110,7 @@ let empty =
+   ; disjunctive_demo= None
+   ; static_constructor_stall_checker= None
+   ; lab_resource_leaks= None
++  ; sympas= None
+   ; litho_required_props= None
+   ; pulse= None
+   ; purity= None
+@@ -129,6 +132,7 @@ let freeze t =
+        ; disjunctive_demo
+        ; static_constructor_stall_checker
+        ; lab_resource_leaks
++       ; sympas
+        ; litho_required_props
+        ; pulse
+        ; purity
+@@ -150,6 +154,7 @@ let freeze t =
+   freeze disjunctive_demo ;
+   freeze static_constructor_stall_checker ;
+   freeze lab_resource_leaks ;
++  freeze sympas ;
+   freeze litho_required_props ;
+   freeze pulse ;
+   freeze purity ;
+@@ -278,6 +283,7 @@ module SQLite = struct
+     ; disjunctive_demo= load ~proc_uid DisjunctiveDemo
+     ; static_constructor_stall_checker= load ~proc_uid StaticConstructorStallChecker
+     ; lab_resource_leaks= load ~proc_uid LabResourceLeaks
++    ; sympas= load ~proc_uid SymPas
+     ; litho_required_props= load ~proc_uid LithoRequiredProps
+     ; pulse= load ~proc_uid Pulse
+     ; purity= load ~proc_uid Purity
+diff --git a/infer/src/backend/Payloads.mli b/infer/src/backend/Payloads.mli
+index 11a44e0363..5e8bc75c8b 100644
+--- a/infer/src/backend/Payloads.mli
++++ b/infer/src/backend/Payloads.mli
+@@ -27,6 +27,7 @@ include sig
+     ; disjunctive_demo: DisjunctiveDemo.domain SafeLazy.t option
+     ; static_constructor_stall_checker: StaticConstructorStallChecker.Summary.t SafeLazy.t option
+     ; lab_resource_leaks: ResourceLeakDomain.summary SafeLazy.t option
++    ; sympas: SymPasDomain.summary SafeLazy.t option
+     ; litho_required_props: LithoDomain.summary SafeLazy.t option
+     ; pulse: PulseSummary.t SafeLazy.t option
+     ; purity: PurityDomain.summary SafeLazy.t option
 diff --git a/infer/src/backend/registerCheckers.ml b/infer/src/backend/registerCheckers.ml
 index d4277032d4..6d241308a2 100644
 --- a/infer/src/backend/registerCheckers.ml
@@ -78,6 +142,39 @@ index 5bddd4f51a..4be370e300 100644
  val lockless_violation : t
  
  val lock_consistency_violation : t
+diff --git a/infer/src/base/PayloadId.ml b/infer/src/base/PayloadId.ml
+index d0c3bd90de..b5e94a1886 100644
+--- a/infer/src/base/PayloadId.ml
++++ b/infer/src/base/PayloadId.ml
+@@ -16,6 +16,7 @@ type t =
+   | DisjunctiveDemo
+   | StaticConstructorStallChecker
+   | LabResourceLeaks
++  | SymPas
+   | LithoRequiredProps
+   | Pulse
+   | Purity
+@@ -47,6 +48,8 @@ let to_checker payload_id : Checker.t =
+       StaticConstructorStallChecker
+   | LabResourceLeaks ->
+       ResourceLeakLabExercise
++  | SymPas ->
++      SymPas
+   | LithoRequiredProps ->
+       LithoRequiredProps
+   | Pulse ->
+diff --git a/infer/src/base/PayloadId.mli b/infer/src/base/PayloadId.mli
+index eea8e08634..3a01a1bab3 100644
+--- a/infer/src/base/PayloadId.mli
++++ b/infer/src/base/PayloadId.mli
+@@ -17,6 +17,7 @@ type t =
+   | DisjunctiveDemo
+   | StaticConstructorStallChecker
+   | LabResourceLeaks
++  | SymPas
+   | LithoRequiredProps
+   | Pulse
+   | Purity
 diff --git a/infer/src/checkers/sympas.ml b/infer/src/checkers/sympas.ml
 new file mode 100644
 index 0000000000..0b706c5474
@@ -222,3 +319,40 @@ index 0000000000..0b706c5474
 +        F.asprintf "SymPas backward dependencies of the return value: %a" Domain.pp variables
 +      in
 +      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message
+diff --git a/infer/src/checkers/SymPasDomain.ml b/infer/src/checkers/SymPasDomain.ml
+new file mode 100644
+index 0000000000..a66090cbad
+--- /dev/null
++++ b/infer/src/checkers/SymPasDomain.ml
+@@ -0,0 +1,16 @@
++open! IStd
++
++type dependency =
++  | Formal of int
++  | Global of string
++[@@deriving compare, equal]
++
++type summary = {dependencies: dependency list}
++
++let pp_dependency fmt = function
++  | Formal index -> Format.fprintf fmt "formal[%d]" index
++  | Global name -> Format.pp_print_string fmt name
++
++let pp_summary fmt {dependencies} =
++  Format.fprintf fmt "{%a}" (Pp.comma_seq pp_dependency) dependencies
++
+diff --git a/infer/src/checkers/SymPasDomain.mli b/infer/src/checkers/SymPasDomain.mli
+new file mode 100644
+index 0000000000..7f36bb7ed4
+--- /dev/null
++++ b/infer/src/checkers/SymPasDomain.mli
+@@ -0,0 +1,9 @@
++type dependency =
++  | Formal of int
++  | Global of string
++[@@deriving compare, equal]
++
++type summary = {dependencies: dependency list}
++
++val pp_summary : Format.formatter -> summary -> unit
++

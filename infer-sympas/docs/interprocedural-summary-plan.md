@@ -32,3 +32,5 @@ callee.formal[0] -> caller.a
 ## 已完成的准备工作
 
 已加入 `SymPasDomain` 摘要类型，支持两类跨函数依赖：`Formal index` 和 `Global name`。下一步是把该类型接入 Infer 的 `Payloads` 数据库字段，再让 checker 返回和消费该摘要。
+
+已将 `SymPas` 摘要字段加入 Infer 的 `PayloadId` 与 `Payloads` 结构，并验证 Infer 可以重新构建。checker 仍暂时保持过程内注册，避免在摘要生成逻辑完成前改变分析调度。
