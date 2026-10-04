@@ -1,0 +1,6 @@
+{
+  "function": "pointer_alias",
+  "criterion": "return",
+  "must_keep": [2, 3, 4],
+  "frontier": ["ptr", "value"]
+}
