@@ -19,10 +19,14 @@ def slice_source(source):
     statements.sort(key=lambda n: n.lineno)
     needed = set()
     selected = set()
-    if statements and isinstance(statements[-1], ast.Return) and statements[-1].value is not None:
-        needed |= names(statements[-1].value)
-        selected.add(statements[-1].lineno)
-    for node in reversed(statements[:-1]):
+    criterion = statements[-1] if statements else None
+    if isinstance(criterion, ast.Return) and criterion.value is not None:
+        needed |= names(criterion.value)
+        selected.add(criterion.lineno)
+    elif isinstance(criterion, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+        needed |= names(criterion.value)
+        selected.add(criterion.lineno)
+    for node in reversed(statements[:-1] if criterion is not None else statements):
         targets = names(node.targets[0]) if hasattr(node, "targets") else set()
         if targets & needed:
             selected.add(node.lineno)
