@@ -34,3 +34,4 @@ run_case control_dependency nested_conditions.c "frontier={ x, y }" "line 2" "li
 run_case control_dependency loop_return.c "frontier={ x }" "line 2" "line 3" "line 7"
 run_case control_dependency unrelated_branch.c "frontier={ x, flag }" "line 2" "line 3" "line 4" "line 5"
 run_case interprocedural call_summary.c "frontier={ a }" "line 6, column 15" "line 7, column 5"
+run_case interprocedural recursive_summary.c "frontier={ x }" "line 2" "line 4"

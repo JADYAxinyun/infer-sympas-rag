@@ -1,0 +1,6 @@
+{
+  "function": "recursive_value",
+  "criterion": "return",
+  "must_keep": [2, 3, 4],
+  "frontier": ["x"]
+}
