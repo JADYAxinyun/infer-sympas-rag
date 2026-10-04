@@ -3,8 +3,9 @@
  *
  * This milestone computes an intraprocedural backward data-dependency slice
  * from a procedure return value, including the source locations of relevant
- * local assignments. It intentionally does not yet compute control
- * dependencies or interprocedural summaries.
+ * assignments and branch conditions. The branch handling is a conservative
+ * first control-dependency approximation; interprocedural summaries are not
+ * implemented yet.
  *)
 
 open! IStd
@@ -88,6 +89,8 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       with the variables read by its right-hand side. *)
   let exec_instr state _ _ _ (instr : Sil.instr) =
     match instr with
+    | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
+        state |> add_exp_vars condition |> Domain.add_location loc
     | Sil.Load {id; e= rhs; _} when Domain.mem (Var.of_id id) state ->
         state |> Domain.remove_var (Var.of_id id) |> add_exp_vars rhs
     | Sil.Store {e1= Exp.Lvar lhs; e2= rhs; loc; _} when Domain.mem (Var.of_pvar lhs) state ->
