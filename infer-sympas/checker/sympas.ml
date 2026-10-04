@@ -123,6 +123,12 @@ let collect_dependencies proc_desc =
   let return_var = Var.of_pvar (Procdesc.get_ret_var proc_desc) in
   Analyzer.compute_post proc_desc ~initial:(Domain.singleton return_var) proc_desc
 
+let formal_summary proc_desc {Domain.frontier} =
+  Procdesc.get_pvar_formals proc_desc
+  |> List.filter_mapi ~f:(fun index (pvar, _) ->
+         if VarSet.mem (Var.of_pvar pvar) frontier then Some index else None)
+  |> SymPasDomain.of_formal_indices
+
 
 let checker {IntraproceduralAnalysis.proc_desc; err_log} =
   match collect_dependencies proc_desc with
@@ -132,7 +138,10 @@ let checker {IntraproceduralAnalysis.proc_desc; err_log} =
       ()
   | Some variables ->
       let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
+      let summary = formal_summary proc_desc variables in
       let message =
-        F.asprintf "SymPas backward dependencies of the return value: %a" Domain.pp variables
+        F.asprintf
+          "SymPas backward dependencies of the return value: %a; candidate summary: %a"
+          Domain.pp variables SymPasDomain.pp_summary summary
       in
       Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message
