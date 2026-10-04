@@ -1,0 +1,10 @@
+{
+  "case": "relative/path/to/source.c",
+  "function": "function_name",
+  "criterion": "return",
+  "expected_locations": [
+    {"line": 0, "column": 0, "reason": "data-dependency"}
+  ],
+  "expected_path_conditions": [],
+  "notes": "Fill from manual review; this template is not an evaluation label."
+}
