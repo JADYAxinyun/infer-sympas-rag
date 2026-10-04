@@ -48,6 +48,13 @@ def slice_source(source):
         if targets & needed:
             selected.add(node.lineno)
             needed |= names(node.value)
+    if not selected:
+        # Conservative completion fallback: retain the last source line and
+        # visible names rather than silently producing an empty context.
+        source_lines = [line for line in source.splitlines() if line.strip()]
+        if source_lines:
+            selected.add(len(source.splitlines()))
+            needed |= names(tree)
     return sorted(selected), sorted(needed)
 
 
