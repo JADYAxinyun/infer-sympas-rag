@@ -26,6 +26,7 @@ run_case intraprocedural field_dependency.c "frontier={ x, box }" "line 6" "line
 run_case intraprocedural array_dependency.c "frontier={ arr," "value," "index }" "line 2" "line 3"
 run_case intraprocedural global_dependency.c "frontier={ x }" "line 4" "line 5"
 run_case intraprocedural pointer_dependency.c "frontier={ ptr, value }" "line 2" "line 3"
+run_case intraprocedural heap_field_dependency.c "frontier={ x }" "line 8" "line 9" "line 10" "line 12"
 run_case control_dependency conditional_return.c "frontier={ x }" "line 2, column 9" "line 3, column 9"
 run_case control_dependency nested_conditions.c "frontier={ x, y }" "line 2" "line 3" "line 4"
 run_case control_dependency loop_return.c "frontier={ x }" "line 2" "line 3" "line 7"

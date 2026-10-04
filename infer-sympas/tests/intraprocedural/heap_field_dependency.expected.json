@@ -1,0 +1,6 @@
+{
+  "function": "heap_value",
+  "criterion": "return",
+  "must_keep": [8, 9, 11],
+  "frontier": ["x", "item"]
+}
