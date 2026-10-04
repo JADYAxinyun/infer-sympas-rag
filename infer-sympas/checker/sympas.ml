@@ -161,6 +161,32 @@ let formal_summary proc_desc {Domain.frontier} =
          if VarSet.mem (Var.of_pvar pvar) frontier then Some index else None)
   |> SymPasDomain.of_formal_indices
 
+let precise_control_locations proc_desc {Domain.slice_locations} =
+  let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
+  let nodes = Procdesc.get_nodes proc_desc in
+  let is_slice_node node =
+    let location = F.asprintf "%a" Location.pp (Procdesc.Node.get_loc node) in
+    LocationSet.mem location slice_locations
+  in
+  let controlled_prunes =
+    List.fold nodes ~init:LocationSet.bottom ~f:(fun locations branch ->
+        let controls_slice_node =
+          List.exists nodes ~f:(fun target ->
+              is_slice_node target
+              && SymPasControlDependence.controls postdominators ~branch ~target)
+        in
+        if controls_slice_node then
+          Instrs.fold (Procdesc.Node.get_instrs branch) ~init:locations ~f:(fun locations instr ->
+              match instr with
+              | Sil.Prune (_, loc, _, _) ->
+                  Domain.add_location loc {Domain.bottom with slice_locations= locations}
+                  |> fun state -> state.Domain.slice_locations
+              | _ ->
+                  locations )
+        else locations )
+  in
+  controlled_prunes
+
 
 let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
   match collect_dependencies analysis_data with
@@ -171,10 +197,11 @@ let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
   | Some variables ->
       let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
       let summary = formal_summary proc_desc variables in
+      let precise_controls = precise_control_locations proc_desc variables in
       let message =
         F.asprintf
-          "SymPas backward dependencies of the return value: %a; candidate summary: %a"
-          Domain.pp variables SymPasDomain.pp_summary summary
+          "SymPas backward dependencies of the return value: %a; candidate summary: %a; precise control locations: %a"
+          Domain.pp variables SymPasDomain.pp_summary summary LocationSet.pp precise_controls
       in
       Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message ;
       Some summary
