@@ -3,7 +3,7 @@
 import json
 import sys
 from pathlib import Path
-from python_slice import slice_source
+from python_slice import slice_source, token_fallback
 
 
 def main():
@@ -21,8 +21,11 @@ def main():
                 facts = ("\n\n# Static facts from Python slice\n"
                          f"- slice lines: {lines}\n"
                          f"- dependency frontier: {frontier}\n")
-            except (SyntaxError, AttributeError, ValueError):
-                facts = "\n\n# Static facts from Python slice\n- unavailable: input prefix is not parseable alone\n"
+            except (SyntaxError, AttributeError, ValueError, TypeError):
+                lines, frontier = token_fallback(source)
+                facts = ("\n\n# Static facts from token fallback\n"
+                         f"- slice lines: {lines}\n"
+                         f"- dependency frontier: {frontier}\n")
             dst.write(json.dumps(prompt + facts, ensure_ascii=False) + "\n")
     return 0
 
