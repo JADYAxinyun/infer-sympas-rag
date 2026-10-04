@@ -22,33 +22,39 @@ end
 module LocationSet = AbstractDomain.FiniteSet (LocationString)
 
 module Domain = struct
-  type t = {frontier: VarSet.t; slice_locations: LocationSet.t}
+  type t = {frontier: VarSet.t; slice_locations: LocationSet.t; path_conditions: LocationSet.t}
 
   let leq ~lhs ~rhs =
     VarSet.leq ~lhs:lhs.frontier ~rhs:rhs.frontier
     && LocationSet.leq ~lhs:lhs.slice_locations ~rhs:rhs.slice_locations
+    && LocationSet.leq ~lhs:lhs.path_conditions ~rhs:rhs.path_conditions
 
 
   let join lhs rhs =
     { frontier= VarSet.join lhs.frontier rhs.frontier
-    ; slice_locations= LocationSet.join lhs.slice_locations rhs.slice_locations }
+    ; slice_locations= LocationSet.join lhs.slice_locations rhs.slice_locations
+    ; path_conditions= LocationSet.join lhs.path_conditions rhs.path_conditions }
 
 
   let widen ~prev ~next ~num_iters =
     { frontier= VarSet.widen ~prev:prev.frontier ~next:next.frontier ~num_iters
     ; slice_locations=
-        LocationSet.widen ~prev:prev.slice_locations ~next:next.slice_locations ~num_iters }
+        LocationSet.widen ~prev:prev.slice_locations ~next:next.slice_locations ~num_iters
+    ; path_conditions=
+        LocationSet.widen ~prev:prev.path_conditions ~next:next.path_conditions ~num_iters }
 
 
-  let pp fmt {frontier; slice_locations} =
-    F.fprintf fmt "{frontier=%a; slice_locations=%a}" VarSet.pp frontier LocationSet.pp
-      slice_locations
+  let pp fmt {frontier; slice_locations; path_conditions} =
+    F.fprintf fmt "{frontier=%a; slice_locations=%a; path_conditions=%a}" VarSet.pp frontier LocationSet.pp
+      slice_locations LocationSet.pp path_conditions
 
 
-  let bottom = {frontier= VarSet.bottom; slice_locations= LocationSet.bottom}
+  let bottom =
+    {frontier= VarSet.bottom; slice_locations= LocationSet.bottom; path_conditions= LocationSet.bottom}
 
-  let is_bottom {frontier; slice_locations} =
+  let is_bottom {frontier; slice_locations; path_conditions} =
     VarSet.is_bottom frontier && LocationSet.is_bottom slice_locations
+    && LocationSet.is_bottom path_conditions
 
 
   let initial = bottom
@@ -64,6 +70,10 @@ module Domain = struct
   let add_location loc state =
     let loc_string = F.asprintf "%a" Location.pp loc in
     {state with slice_locations= LocationSet.add loc_string state.slice_locations}
+
+  let add_condition condition state =
+    let condition_string = F.asprintf "%a" Exp.pp condition in
+    {state with path_conditions= LocationSet.add condition_string state.path_conditions}
 
 end
 
@@ -94,7 +104,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
       (instr : Sil.instr) =
     match instr with
     | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
-        state |> add_exp_vars condition |> Domain.add_location loc
+        state |> add_exp_vars condition |> Domain.add_location loc |> Domain.add_condition condition
     | Sil.Call ((ret_id, _), callee, actuals, loc, _)
       when Domain.mem (Var.of_id ret_id) state ->
         let state =
