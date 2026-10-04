@@ -22,18 +22,20 @@ end
 module LocationSet = AbstractDomain.FiniteSet (LocationString)
 
 module Domain = struct
-  type t = {frontier: VarSet.t; slice_locations: LocationSet.t; path_conditions: LocationSet.t}
+  type t = {frontier: VarSet.t; slice_locations: LocationSet.t; path_conditions: LocationSet.t; global_dependencies: LocationSet.t}
 
   let leq ~lhs ~rhs =
     VarSet.leq ~lhs:lhs.frontier ~rhs:rhs.frontier
     && LocationSet.leq ~lhs:lhs.slice_locations ~rhs:rhs.slice_locations
     && LocationSet.leq ~lhs:lhs.path_conditions ~rhs:rhs.path_conditions
+    && LocationSet.leq ~lhs:lhs.global_dependencies ~rhs:rhs.global_dependencies
 
 
   let join lhs rhs =
     { frontier= VarSet.join lhs.frontier rhs.frontier
     ; slice_locations= LocationSet.join lhs.slice_locations rhs.slice_locations
-    ; path_conditions= LocationSet.join lhs.path_conditions rhs.path_conditions }
+    ; path_conditions= LocationSet.join lhs.path_conditions rhs.path_conditions
+    ; global_dependencies= LocationSet.join lhs.global_dependencies rhs.global_dependencies }
 
 
   let widen ~prev ~next ~num_iters =
@@ -41,20 +43,23 @@ module Domain = struct
     ; slice_locations=
         LocationSet.widen ~prev:prev.slice_locations ~next:next.slice_locations ~num_iters
     ; path_conditions=
-        LocationSet.widen ~prev:prev.path_conditions ~next:next.path_conditions ~num_iters }
+        LocationSet.widen ~prev:prev.path_conditions ~next:next.path_conditions ~num_iters
+    ; global_dependencies=
+        LocationSet.widen ~prev:prev.global_dependencies ~next:next.global_dependencies ~num_iters }
 
 
-  let pp fmt {frontier; slice_locations; path_conditions} =
-    F.fprintf fmt "{frontier=%a; slice_locations=%a; path_conditions=%a}" VarSet.pp frontier LocationSet.pp
-      slice_locations LocationSet.pp path_conditions
+  let pp fmt {frontier; slice_locations; path_conditions; global_dependencies} =
+    F.fprintf fmt "{frontier=%a; slice_locations=%a; path_conditions=%a; global_dependencies=%a}" VarSet.pp frontier LocationSet.pp
+      slice_locations LocationSet.pp path_conditions LocationSet.pp global_dependencies
 
 
   let bottom =
-    {frontier= VarSet.bottom; slice_locations= LocationSet.bottom; path_conditions= LocationSet.bottom}
+    {frontier= VarSet.bottom; slice_locations= LocationSet.bottom; path_conditions= LocationSet.bottom; global_dependencies= LocationSet.bottom}
 
-  let is_bottom {frontier; slice_locations; path_conditions} =
+  let is_bottom {frontier; slice_locations; path_conditions; global_dependencies} =
     VarSet.is_bottom frontier && LocationSet.is_bottom slice_locations
     && LocationSet.is_bottom path_conditions
+    && LocationSet.is_bottom global_dependencies
 
 
   let initial = bottom
@@ -117,7 +122,9 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
                       | SymPasDomain.Formal index ->
                           Option.value_map (List.nth actuals index) ~default:state
                             ~f:(fun (actual, _) -> add_exp_vars actual state)
-                      | SymPasDomain.Global _ -> state )
+                      | SymPasDomain.Global name ->
+                          {state with Domain.global_dependencies=
+                            LocationSet.add name state.Domain.global_dependencies} )
               | Error _ ->
                   state )
           | _ ->
@@ -165,7 +172,7 @@ let collect_dependencies analysis_data =
   let return_var = Var.of_pvar (Procdesc.get_ret_var proc_desc) in
   Analyzer.compute_post analysis_data ~initial:(Domain.singleton return_var) proc_desc
 
-let formal_summary proc_desc {Domain.frontier} =
+let formal_summary proc_desc {Domain.frontier; global_dependencies} =
   let formals =
     Procdesc.get_pvar_formals proc_desc
     |> List.filter_mapi ~f:(fun index (pvar, _) ->
@@ -182,7 +189,12 @@ let formal_summary proc_desc {Domain.frontier} =
              | None -> globals
            else globals )
   in
-  {SymPasDomain.dependencies= List.dedup_and_sort (formals @ globals) ~compare:SymPasDomain.compare_dependency}
+  let carried_globals =
+    LocationSet.elements global_dependencies
+    |> List.map ~f:(fun name -> SymPasDomain.Global name)
+  in
+  {SymPasDomain.dependencies=
+     List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency}
 
 let precise_control_locations proc_desc {Domain.slice_locations} =
   let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
