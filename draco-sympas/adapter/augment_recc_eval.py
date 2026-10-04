@@ -7,7 +7,7 @@ from python_slice import slice_source
 
 
 def main():
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 4:
         print(f"usage: {Path(sys.argv[0]).name} METADATA.jsonl PROMPTS.jsonl OUTPUT.jsonl", file=sys.stderr)
         return 2
     metadata, prompts, output = map(Path, sys.argv[1:])
