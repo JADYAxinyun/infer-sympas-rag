@@ -135,6 +135,10 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
         |> add_exp_vars index
         |> add_exp_vars rhs
         |> Domain.add_location loc
+    | Sil.Store {e1= Exp.Lvar _; _} ->
+        state
+    | Sil.Store {e1= lhs; e2= rhs; loc; _} when not (Domain.is_bottom state) ->
+        state |> add_exp_vars lhs |> add_exp_vars rhs |> Domain.add_location loc
     | _ ->
         state
 

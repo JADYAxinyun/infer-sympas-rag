@@ -177,10 +177,10 @@ index eea8e08634..3a01a1bab3 100644
    | Purity
 diff --git a/infer/src/checkers/sympas.ml b/infer/src/checkers/sympas.ml
 new file mode 100644
-index 0000000000..249d995fde
+index 0000000000..e2d6be7faa
 --- /dev/null
 +++ b/infer/src/checkers/sympas.ml
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,180 @@
 +(*
 + * Initial SymPas prototype.
 + *
@@ -318,6 +318,10 @@ index 0000000000..249d995fde
 +        |> add_exp_vars index
 +        |> add_exp_vars rhs
 +        |> Domain.add_location loc
++    | Sil.Store {e1= Exp.Lvar _; _} ->
++        state
++    | Sil.Store {e1= lhs; e2= rhs; loc; _} when not (Domain.is_bottom state) ->
++        state |> add_exp_vars lhs |> add_exp_vars rhs |> Domain.add_location loc
 +    | _ ->
 +        state
 +
