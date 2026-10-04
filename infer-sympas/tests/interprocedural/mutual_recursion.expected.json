@@ -1,0 +1,6 @@
+{
+  "function": "entry",
+  "criterion": "return",
+  "must_keep": [12, 13, 14],
+  "summary_dependency": "mutual recursive summaries preserve entry.value"
+}
