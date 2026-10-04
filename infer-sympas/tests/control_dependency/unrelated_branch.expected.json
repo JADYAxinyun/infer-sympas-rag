@@ -1,0 +1,6 @@
+{
+  "function": "unrelated_branch",
+  "criterion": "return",
+  "must_keep": [2, 3, 4, 5, 6],
+  "frontier": ["x", "flag", "result"]
+}
