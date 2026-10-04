@@ -28,3 +28,7 @@ callee.formal[0] -> caller.a
 ## 当前验证边界
 
 `tests/interprocedural/call_summary.c` 已验证调用点传播，但尚未声称完成论文意义上的函数摘要。
+
+## 已完成的准备工作
+
+已加入 `SymPasDomain` 摘要类型，支持两类跨函数依赖：`Formal index` 和 `Global name`。下一步是把该类型接入 Infer 的 `Payloads` 数据库字段，再让 checker 返回和消费该摘要。
