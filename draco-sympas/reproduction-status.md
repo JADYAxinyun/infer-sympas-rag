@@ -16,4 +16,6 @@ cd third_party/draco-upstream/src
 ../../../draco-sympas/.venv/bin/python preprocess.py
 ```
 
-当前尚未完成模型推理和论文指标复现。下一步是在不下载大型本地代码模型的情况下，先检查 `main.py` 的 Prompt 生成路径，再接入 Infer-SymPas 的 `report.json`。
+已使用 `gpt35` 配置完成 6461 条 ReccEval Prompt 生成（仅生成上下文，不调用模型 API）。
+- Prompt 输出保存在本地 `draco-sympas/artifacts/`，不提交到 GitHub。
+- 尚未完成代码模型推理和论文指标复现。下一步接入 Infer-SymPas 的 `report.json`。
