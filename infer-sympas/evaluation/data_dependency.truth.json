@@ -1,0 +1,1 @@
+[{"case":"intraprocedural/data_dependency.c","function":"foo","criterion":"return","expected_locations":[{"line":3,"column":5,"reason":"data-dependency"},{"line":4,"column":5,"reason":"criterion"}],"expected_path_conditions":[]}]
