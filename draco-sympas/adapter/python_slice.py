@@ -15,8 +15,12 @@ def names(node):
 
 def parse_prefix(source):
     candidates = [source, source + "\npass"]
-    if source.rstrip().endswith("."):
-        candidates.append(source.rstrip() + "__completion__")
+    stripped = source.rstrip()
+    if stripped.endswith(":"):
+        indent = len(stripped.split("\n")[-1]) - len(stripped.split("\n")[-1].lstrip()) + 4
+        candidates.append(stripped + "\n" + " " * indent + "pass")
+    if stripped.endswith("."):
+        candidates.append(stripped + "__completion__")
     last_error = None
     for candidate in candidates:
         try:
