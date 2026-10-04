@@ -130,12 +130,12 @@ let formal_summary proc_desc {Domain.frontier} =
   |> SymPasDomain.of_formal_indices
 
 
-let checker {IntraproceduralAnalysis.proc_desc; err_log} =
+let checker {InterproceduralAnalysis.proc_desc; err_log} =
   match collect_dependencies proc_desc with
   | None ->
-      ()
+      None
   | Some variables when Domain.is_bottom variables ->
-      ()
+      None
   | Some variables ->
       let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
       let summary = formal_summary proc_desc variables in
@@ -144,4 +144,5 @@ let checker {IntraproceduralAnalysis.proc_desc; err_log} =
           "SymPas backward dependencies of the return value: %a; candidate summary: %a"
           Domain.pp variables SymPasDomain.pp_summary summary
       in
-      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message
+      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message ;
+      Some summary

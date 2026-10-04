@@ -63,14 +63,14 @@ index 11a44e0363..5e8bc75c8b 100644
      ; pulse: PulseSummary.t SafeLazy.t option
      ; purity: PurityDomain.summary SafeLazy.t option
 diff --git a/infer/src/backend/registerCheckers.ml b/infer/src/backend/registerCheckers.ml
-index d4277032d4..6d241308a2 100644
+index d4277032d4..48da5c585c 100644
 --- a/infer/src/backend/registerCheckers.ml
 +++ b/infer/src/backend/registerCheckers.ml
 @@ -84,6 +84,7 @@ let all_checkers =
    (* The order of the list is important for those checkers that depend on other checkers having run
       before them. *)
    [ {checker= SelfInBlock; callbacks= [(intraprocedural SelfInBlock.checker, Clang)]}
-+  ; {checker= SymPas; callbacks= [(intraprocedural Sympas.checker, Clang)]}
++  ; {checker= SymPas; callbacks= [(interprocedural Payloads.Fields.sympas Sympas.checker, Clang)]}
    ; { checker= ParameterNotNullChecked
      ; callbacks= [(intraprocedural ParameterNotNullChecked.checker, Clang)] }
    ; { checker= StaticConstructorStallChecker
@@ -177,10 +177,10 @@ index eea8e08634..3a01a1bab3 100644
    | Purity
 diff --git a/infer/src/checkers/sympas.ml b/infer/src/checkers/sympas.ml
 new file mode 100644
-index 0000000000..0b706c5474
+index 0000000000..bea475e7c2
 --- /dev/null
 +++ b/infer/src/checkers/sympas.ml
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,148 @@
 +(*
 + * Initial SymPas prototype.
 + *
@@ -306,53 +306,26 @@ index 0000000000..0b706c5474
 +  let return_var = Var.of_pvar (Procdesc.get_ret_var proc_desc) in
 +  Analyzer.compute_post proc_desc ~initial:(Domain.singleton return_var) proc_desc
 +
++let formal_summary proc_desc {Domain.frontier} =
++  Procdesc.get_pvar_formals proc_desc
++  |> List.filter_mapi ~f:(fun index (pvar, _) ->
++         if VarSet.mem (Var.of_pvar pvar) frontier then Some index else None)
++  |> SymPasDomain.of_formal_indices
 +
-+let checker {IntraproceduralAnalysis.proc_desc; err_log} =
++
++let checker {InterproceduralAnalysis.proc_desc; err_log} =
 +  match collect_dependencies proc_desc with
 +  | None ->
-+      ()
++      None
 +  | Some variables when Domain.is_bottom variables ->
-+      ()
++      None
 +  | Some variables ->
 +      let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
++      let summary = formal_summary proc_desc variables in
 +      let message =
-+        F.asprintf "SymPas backward dependencies of the return value: %a" Domain.pp variables
++        F.asprintf
++          "SymPas backward dependencies of the return value: %a; candidate summary: %a"
++          Domain.pp variables SymPasDomain.pp_summary summary
 +      in
-+      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message
-diff --git a/infer/src/checkers/SymPasDomain.ml b/infer/src/checkers/SymPasDomain.ml
-new file mode 100644
-index 0000000000..a66090cbad
---- /dev/null
-+++ b/infer/src/checkers/SymPasDomain.ml
-@@ -0,0 +1,16 @@
-+open! IStd
-+
-+type dependency =
-+  | Formal of int
-+  | Global of string
-+[@@deriving compare, equal]
-+
-+type summary = {dependencies: dependency list}
-+
-+let pp_dependency fmt = function
-+  | Formal index -> Format.fprintf fmt "formal[%d]" index
-+  | Global name -> Format.pp_print_string fmt name
-+
-+let pp_summary fmt {dependencies} =
-+  Format.fprintf fmt "{%a}" (Pp.comma_seq pp_dependency) dependencies
-+
-diff --git a/infer/src/checkers/SymPasDomain.mli b/infer/src/checkers/SymPasDomain.mli
-new file mode 100644
-index 0000000000..7f36bb7ed4
---- /dev/null
-+++ b/infer/src/checkers/SymPasDomain.mli
-@@ -0,0 +1,9 @@
-+type dependency =
-+  | Formal of int
-+  | Global of string
-+[@@deriving compare, equal]
-+
-+type summary = {dependencies: dependency list}
-+
-+val pp_summary : Format.formatter -> summary -> unit
-+
++      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message ;
++      Some summary
