@@ -12,10 +12,11 @@ def inject_facts(prompt: str, facts: str) -> str:
     DraCo asks the model to complete the last line, so appending facts after
     the prefix makes the model continue the facts instead of the program.
     """
-    marker = "'''"
-    index = prompt.find(marker)
-    if index >= 0:
-        return prompt[:index] + facts + "\n" + prompt[index:]
+    # Put facts immediately before the final (incomplete) source line. This
+    # keeps both the facts and the completion target inside the model window.
+    head, separator, last_line = prompt.rpartition("\n")
+    if separator:
+        return head + facts + "\n" + last_line
     return facts + "\n" + prompt
 
 
