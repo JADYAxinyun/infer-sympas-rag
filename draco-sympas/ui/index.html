@@ -29,7 +29,7 @@ pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
 <script>
 document.querySelector('#run').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='分析中……';
-  try{const source=document.querySelector('#source').value; const [slice,review]=await Promise.all(['/slice','/review'].map(path=>fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})}).then(r=>r.json()))); out.textContent=JSON.stringify({slice,review},null,2)}
+  try{const source=document.querySelector('#source').value; const r=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})}); out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 
