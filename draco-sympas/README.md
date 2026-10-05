@@ -36,6 +36,14 @@ curl -X POST http://127.0.0.1:8765/slice \\
 
 浏览器演示界面：启动服务后访问 `http://127.0.0.1:8765/`。
 
+## 第一条审查规则
+
+当前闭环优先验证“函数返回值是否被检查”：系统报告问题行、被调用函数、返回值变量和修复建议。运行测试：
+
+```bash
+python -m pytest draco-sympas/tests/test_review.py
+```
+
 该命令要求先生成 `artifacts/draco-prompts.jsonl`，然后自动生成 SymPas 增强 Prompt。
 
 ## 当前状态
