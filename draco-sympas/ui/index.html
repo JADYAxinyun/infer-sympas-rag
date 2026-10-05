@@ -52,7 +52,7 @@ document.querySelector('#run-infer').onclick=async()=>{
 
 document.querySelector('#run-infer').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='运行 Infer 中……';
-  try{const project=document.querySelector('#project').value; const build=document.querySelector('#build').value.trim().split(/\s+/); const r=await fetch('/run-infer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,build_command:build})}); out.textContent=JSON.stringify(await r.json(),null,2)}
+  try{const project=document.querySelector('#project').value; const build=document.querySelector('#build').value.trim().split(/\s+/); const source=document.querySelector('#source').value; const r=await fetch('/project-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,build_command:build,source,llm:false})}); out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 </script>
