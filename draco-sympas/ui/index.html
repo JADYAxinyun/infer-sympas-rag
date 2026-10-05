@@ -26,6 +26,11 @@ pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
 
 <h2>Infer 报告</h2>
 <textarea id="infer">[{"bug_type":"DEAD_STORE","file":"data_dependency.c","line":2,"qualifier":"unused","severity":"warning"}]</textarea><br><button id="run-infer">解析 Infer 报告</button>
+
+<h2>自动运行 Infer</h2>
+<input id="project" style="width:70%;padding:8px" placeholder="项目绝对路径">
+<input id="build" style="width:70%;padding:8px" value="make" placeholder="构建命令，例如 make">
+<button id="run-infer">运行 Infer</button>
 <script>
 document.querySelector('#run').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='分析中……';
@@ -42,6 +47,12 @@ document.querySelector('#run-diff').onclick=async()=>{
 document.querySelector('#run-infer').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='解析 Infer 报告中……';
   try{const r=await fetch('/infer-report',{method:'POST',headers:{'Content-Type':'application/json'},body:document.querySelector('#infer').value}); out.textContent=JSON.stringify(await r.json(),null,2)}
+  catch(e){out.textContent='请求失败：'+e}
+};
+
+document.querySelector('#run-infer').onclick=async()=>{
+  const out=document.querySelector('#out'); out.textContent='运行 Infer 中……';
+  try{const project=document.querySelector('#project').value; const build=document.querySelector('#build').value.trim().split(/\s+/); const r=await fetch('/run-infer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,build_command:build})}); out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 </script>
