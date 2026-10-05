@@ -2,6 +2,16 @@
 
 使用 CodeGen 350M 对增强 Prompt 进行本地代码补全：
 
+## 本地 LLM 审查解释
+
+将 `/analyze` 保存的 JSON 交给本地 CodeGen：
+
+```bash
+python draco-sympas/generation/explain_report.py \
+  --input analysis.json \
+  --output explanation.json
+```
+
 ```bash
 source draco-sympas/.venv/bin/activate
 python draco-sympas/generation/generate_local.py \
