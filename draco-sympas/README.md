@@ -27,9 +27,9 @@ python draco-sympas/run_pipeline.py
 ## 当前状态
 
 - 已接入 DRaCo 官方仓库作为上游依赖；
-- 尚未修改 DRaCo 原始代码；
-- 下一步实现 `sympas_adapter`，把 Infer 的 `report.json` 转换为 DRaCo 可消费的代码上下文；
-- 集成实验将比较 `DRaCo` 与 `SymPas Slice + DRaCo`。
+- 不修改 DRaCo 原始代码，通过适配器生成增强 Prompt；
+- 已完成 ReccEval 的 Python 程序切片上下文注入，并保留原始代码前缀作为 Prompt 末尾，避免模型继续生成静态事实；
+- 集成实验比较 `DRaCo` 与 `SymPas Slice + DRaCo`，当前本地 CodeGen 仅完成小样本流程验证，指标仍待正式评估。
 
 ## 目录规划
 

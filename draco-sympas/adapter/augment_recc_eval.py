@@ -6,6 +6,19 @@ from pathlib import Path
 from python_slice import slice_source, token_fallback
 
 
+def inject_facts(prompt: str, facts: str) -> str:
+    """Keep the code prefix as the final part of the prompt.
+
+    DraCo asks the model to complete the last line, so appending facts after
+    the prefix makes the model continue the facts instead of the program.
+    """
+    marker = "'''"
+    index = prompt.find(marker)
+    if index >= 0:
+        return prompt[:index] + facts + "\n" + prompt[index:]
+    return facts + "\n" + prompt
+
+
 def main():
     if len(sys.argv) != 4:
         print(f"usage: {Path(sys.argv[0]).name} METADATA.jsonl PROMPTS.jsonl OUTPUT.jsonl", file=sys.stderr)
@@ -26,7 +39,7 @@ def main():
                 facts = ("\n\n# Static facts from token fallback\n"
                          f"- slice lines: {lines}\n"
                          f"- dependency frontier: {frontier}\n")
-            dst.write(json.dumps(prompt + facts, ensure_ascii=False) + "\n")
+            dst.write(json.dumps(inject_facts(prompt, facts), ensure_ascii=False) + "\n")
     return 0
 
 
