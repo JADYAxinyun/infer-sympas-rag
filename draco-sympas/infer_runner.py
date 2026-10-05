@@ -17,6 +17,11 @@ def run_infer(project, build_command, infer_bin="infer", results_dir=None):
     except FileNotFoundError as error:
         return {"ok": False, "returncode": None, "stdout": "", "stderr": str(error), "findings": []}
     report_path = results / "report.json"
+    if completed.returncode == 0:
+        analyze = subprocess.run([infer_bin, "analyze", "--results-dir", str(results)], cwd=project,
+                                 text=True, capture_output=True)
+        if analyze.returncode != 0:
+            completed = analyze
     if not report_path.exists():
         return {"ok": False, "returncode": completed.returncode, "stdout": completed.stdout,
                 "stderr": completed.stderr, "findings": []}
