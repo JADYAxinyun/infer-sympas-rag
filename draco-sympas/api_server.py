@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent / "adapter"))
 from python_slice import slice_source, token_fallback  # noqa: E402
 from review import review_source  # noqa: E402
+from diff_review import review_diff  # noqa: E402
 
 UI = Path(__file__).parent / "ui" / "index.html"
 
@@ -36,6 +37,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path == "/review-diff":
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                data = json.loads(self.rfile.read(size))
+                self._send(200, review_diff(data["diff"]))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                self._send(400, {"error": "expected JSON body with a string field: diff"})
+            return
         if self.path == "/review":
             try:
                 size = int(self.headers.get("Content-Length", "0"))
