@@ -34,6 +34,8 @@ curl -X POST http://127.0.0.1:8765/slice \\
   -d '{"source":"def f(x):\\n    y = x + 1\\n    return y"}'
 ```
 
+浏览器演示界面：启动服务后访问 `http://127.0.0.1:8765/`。
+
 该命令要求先生成 `artifacts/draco-prompts.jsonl`，然后自动生成 SymPas 增强 Prompt。
 
 ## 当前状态

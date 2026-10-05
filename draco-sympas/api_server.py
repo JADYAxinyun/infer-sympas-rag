@@ -8,6 +8,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent / "adapter"))
 from python_slice import slice_source, token_fallback  # noqa: E402
 
+UI = Path(__file__).parent / "ui" / "index.html"
+
 
 class Handler(BaseHTTPRequestHandler):
     def _send(self, status, payload):
@@ -19,6 +21,14 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path in ("/", "/index.html"):
+            body = UI.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/health":
             self._send(200, {"status": "ok", "service": "draco-sympas"})
         else:

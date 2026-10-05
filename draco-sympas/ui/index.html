@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>DRaCo + SymPas</title>
+<style>
+body{font:16px system-ui;max-width:1000px;margin:32px auto;padding:0 20px;color:#1f2937}
+h1{color:#174ea6}main{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+textarea{width:100%;height:300px;font:14px monospace;padding:10px;box-sizing:border-box}
+button{margin-top:10px;padding:9px 18px;background:#174ea6;color:white;border:0;border-radius:5px;cursor:pointer}
+pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
+.hint{color:#64748b}
+</style>
+<h1>DRaCo + SymPas 演示</h1>
+<p class="hint">输入 Python 代码，查看程序切片得到的静态事实。</p>
+<main><section><textarea id="source">def f(x):
+    unused = 100
+    y = x + 1
+    return y</textarea><br><button id="run">运行切片</button></section><section><pre id="out">等待分析……</pre></section></main>
+<script>
+document.querySelector('#run').onclick=async()=>{
+  const out=document.querySelector('#out'); out.textContent='分析中……';
+  try{const r=await fetch('/slice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:document.querySelector('#source').value})}); out.textContent=JSON.stringify(await r.json(),null,2)}
+  catch(e){out.textContent='请求失败：'+e}
+};
+</script>
