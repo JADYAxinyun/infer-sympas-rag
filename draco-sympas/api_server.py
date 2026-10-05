@@ -41,6 +41,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path == "/project-review":
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                data = json.loads(self.rfile.read(size))
+                infer = run_infer(data["project"], data["build_command"], data.get("infer_bin", "infer"))
+                result = {"infer": infer}
+                if data.get("source"):
+                    source = data["source"]
+                    try:
+                        lines, frontier = slice_source(source)
+                        method = "ast"
+                    except (SyntaxError, AttributeError, ValueError, TypeError):
+                        lines, frontier = token_fallback(source)
+                        method = "token_fallback"
+                    result["analysis"] = {"slice": {"method": method, "slice_lines": lines, "frontier": frontier},
+                                           "review": review_source(source), "infer": infer}
+                    if data.get("llm"):
+                        result["llm"] = {"explanation": explain(result["analysis"])}
+                self._send(200, result)
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+                self._send(400, {"error": str(error)})
+            return
         if self.path == "/run-infer":
             try:
                 size = int(self.headers.get("Content-Length", "0"))
