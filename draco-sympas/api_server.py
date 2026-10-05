@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent / "adapter"))
 from python_slice import slice_source, token_fallback  # noqa: E402
 from review import review_source  # noqa: E402
 from diff_review import review_diff  # noqa: E402
+from infer_adapter import normalize_report  # noqa: E402
 
 UI = Path(__file__).parent / "ui" / "index.html"
 
@@ -37,6 +38,13 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path == "/infer-report":
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                self._send(200, normalize_report(json.loads(self.rfile.read(size))))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                self._send(400, {"error": "expected an Infer JSON report"})
+            return
         if self.path == "/review-diff":
             try:
                 size = int(self.headers.get("Content-Length", "0"))
