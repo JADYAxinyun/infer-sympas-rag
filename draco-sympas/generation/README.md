@@ -12,6 +12,8 @@ python draco-sympas/generation/generate_local.py \
 
 已在 Apple Silicon MPS 上完成 1 条样本推理。模型缓存约 764 MB。批量运行前应先用较小的 `--limit` 评估时间和生成质量。
 
+本地生成器采用左侧截断：输入过长时优先保留 Prompt 末尾的代码补全前缀，避免截掉真正的补全位置。
+
 评测小批量结果：
 
 ```bash

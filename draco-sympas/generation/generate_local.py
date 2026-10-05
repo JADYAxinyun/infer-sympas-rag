@@ -14,9 +14,12 @@ def main():
     parser.add_argument('--model', default='Salesforce/codegen-350M-mono')
     parser.add_argument('--limit', type=int, default=1)
     parser.add_argument('--max-new-tokens', type=int, default=48)
+    parser.add_argument('--max-input-tokens', type=int, default=2000)
     args = parser.parse_args()
     device = 'mps' if torch.backends.mps.is_available() else 'cpu'
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    # Preserve the completion prefix at the right edge when context is long.
+    tokenizer.truncation_side = 'left'
     model = AutoModelForCausalLM.from_pretrained(args.model).to(device)
     model.eval()
     with Path(args.prompts).open() as src, Path(args.output).open('w') as dst:
@@ -24,7 +27,10 @@ def main():
             if index >= args.limit:
                 break
             prompt = json.loads(line)
-            inputs = tokenizer(prompt, return_tensors='pt', truncation=True, max_length=1536).to(device)
+            inputs = tokenizer(
+                prompt, return_tensors='pt', truncation=True,
+                max_length=args.max_input_tokens,
+            ).to(device)
             with torch.no_grad():
                 generated = model.generate(**inputs, max_new_tokens=args.max_new_tokens, do_sample=False)
             completion = tokenizer.decode(generated[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
