@@ -11,6 +11,7 @@ from review import review_source  # noqa: E402
 from diff_review import review_diff  # noqa: E402
 from infer_adapter import normalize_report  # noqa: E402
 from report import render_markdown  # noqa: E402
+from llm_service import explain  # noqa: E402
 
 UI = Path(__file__).parent / "ui" / "index.html"
 
@@ -39,6 +40,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path == "/llm-review":
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                analysis = json.loads(self.rfile.read(size))
+                self._send(200, {"explanation": explain(analysis), "model": "Salesforce/codegen-350M-mono"})
+            except (TypeError, ValueError, json.JSONDecodeError):
+                self._send(400, {"error": "expected structured analysis JSON"})
+            return
         if self.path == "/report":
             try:
                 size = int(self.headers.get("Content-Length", "0"))
