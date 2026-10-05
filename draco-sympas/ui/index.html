@@ -11,15 +11,15 @@ pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
 .hint{color:#64748b}
 </style>
 <h1>DRaCo + SymPas 演示</h1>
-<p class="hint">输入 Python 代码，查看程序切片得到的静态事实。</p>
-<main><section><textarea id="source">def f(x):
-    unused = 100
-    y = x + 1
-    return y</textarea><br><button id="run">运行切片</button></section><section><pre id="out">等待分析……</pre></section></main>
+<p class="hint">输入 Python 代码，查看程序切片和返回值检查建议。</p>
+<main><section><textarea id="source">def process(x):
+    result = load_config(x)
+    continue_running()
+    return result</textarea><br><button id="run">运行审查</button></section><section><pre id="out">等待分析……</pre></section></main>
 <script>
 document.querySelector('#run').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='分析中……';
-  try{const r=await fetch('/slice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:document.querySelector('#source').value})}); out.textContent=JSON.stringify(await r.json(),null,2)}
+  try{const source=document.querySelector('#source').value; const [slice,review]=await Promise.all(['/slice','/review'].map(path=>fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})}).then(r=>r.json()))); out.textContent=JSON.stringify({slice,review},null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 </script>
