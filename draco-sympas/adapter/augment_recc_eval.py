@@ -33,13 +33,13 @@ def main():
             try:
                 lines, frontier = slice_source(source)
                 facts = ("\n\n# Static facts from Python slice\n"
-                         f"- slice lines: {lines}\n"
-                         f"- dependency frontier: {frontier}\n")
+                         f"# slice lines: {lines}\n"
+                         f"# dependency frontier: {frontier}\n")
             except (SyntaxError, AttributeError, ValueError, TypeError):
                 lines, frontier = token_fallback(source)
                 facts = ("\n\n# Static facts from token fallback\n"
-                         f"- slice lines: {lines}\n"
-                         f"- dependency frontier: {frontier}\n")
+                         f"# slice lines: {lines}\n"
+                         f"# dependency frontier: {frontier}\n")
             dst.write(json.dumps(inject_facts(prompt, facts), ensure_ascii=False) + "\n")
     return 0
 
