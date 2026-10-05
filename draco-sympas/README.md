@@ -22,6 +22,18 @@ git submodule update --init --recursive
 python draco-sympas/run_pipeline.py
 ```
 
+## 最小 API 演示
+
+当前先提供无第三方依赖的切片 API，方便后续接入 UI：
+
+```bash
+python draco-sympas/api_server.py
+curl http://127.0.0.1:8765/health
+curl -X POST http://127.0.0.1:8765/slice \\
+  -H 'Content-Type: application/json' \\
+  -d '{"source":"def f(x):\\n    y = x + 1\\n    return y"}'
+```
+
 该命令要求先生成 `artifacts/draco-prompts.jsonl`，然后自动生成 SymPas 增强 Prompt。
 
 ## 当前状态
