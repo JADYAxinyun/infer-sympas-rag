@@ -16,10 +16,23 @@ pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
     result = load_config(x)
     continue_running()
     return result</textarea><br><button id="run">运行审查</button></section><section><pre id="out">等待分析……</pre></section></main>
+
+<h2>Git Diff 审查</h2>
+<textarea id="diff">diff --git a/config.py b/config.py
++++ b/config.py
+@@ -1,2 +1,3 @@
++    ret = load_config(path)
++    continue_running()</textarea><br><button id="run-diff">审查 Diff</button>
 <script>
 document.querySelector('#run').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='分析中……';
   try{const source=document.querySelector('#source').value; const [slice,review]=await Promise.all(['/slice','/review'].map(path=>fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})}).then(r=>r.json()))); out.textContent=JSON.stringify({slice,review},null,2)}
+  catch(e){out.textContent='请求失败：'+e}
+};
+
+document.querySelector('#run-diff').onclick=async()=>{
+  const out=document.querySelector('#out'); out.textContent='分析 Diff 中……';
+  try{const r=await fetch('/review-diff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({diff:document.querySelector('#diff').value})}); out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 </script>
