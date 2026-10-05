@@ -45,8 +45,10 @@ class Handler(BaseHTTPRequestHandler):
                 size = int(self.headers.get("Content-Length", "0"))
                 analysis = json.loads(self.rfile.read(size))
                 self._send(200, {"explanation": explain(analysis), "model": "Salesforce/codegen-350M-mono"})
-            except (TypeError, ValueError, json.JSONDecodeError):
-                self._send(400, {"error": "expected structured analysis JSON"})
+            except (TypeError, ValueError, json.JSONDecodeError) as error:
+                self._send(400, {"error": str(error)})
+            except ModuleNotFoundError:
+                self._send(503, {"error": "local LLM dependencies missing; use draco-sympas/.venv/bin/python"})
             return
         if self.path == "/report":
             try:

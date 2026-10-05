@@ -3,8 +3,6 @@
 import argparse
 import json
 from pathlib import Path
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def build_prompt(analysis):
@@ -14,6 +12,8 @@ def build_prompt(analysis):
 
 
 def main():
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)

@@ -1,7 +1,5 @@
 """Lazy local CodeGen service used by the optional review endpoint."""
 import json
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
 from generation.explain_report import build_prompt
 
 _MODEL = None
@@ -9,6 +7,8 @@ _TOKENIZER = None
 
 
 def explain(analysis, model_name="Salesforce/codegen-350M-mono"):
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
     global _MODEL, _TOKENIZER
     if _MODEL is None:
         device = "mps" if torch.backends.mps.is_available() else "cpu"
