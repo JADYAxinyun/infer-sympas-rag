@@ -11,6 +11,7 @@ from review import review_source  # noqa: E402
 from diff_review import review_diff  # noqa: E402
 from infer_adapter import normalize_report  # noqa: E402
 from report import render_markdown  # noqa: E402
+from infer_runner import run_infer  # noqa: E402
 from llm_service import explain  # noqa: E402
 
 UI = Path(__file__).parent / "ui" / "index.html"
@@ -40,6 +41,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path == "/run-infer":
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                data = json.loads(self.rfile.read(size))
+                self._send(200, run_infer(data["project"], data["build_command"], data.get("infer_bin", "infer")))
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+                self._send(400, {"error": str(error)})
+            return
         if self.path == "/llm-review":
             try:
                 size = int(self.headers.get("Content-Length", "0"))
