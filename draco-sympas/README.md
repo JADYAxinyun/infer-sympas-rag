@@ -44,6 +44,8 @@ curl -X POST http://127.0.0.1:8765/slice \\
 python -m pytest draco-sympas/tests/test_review.py
 ```
 
+统一分析接口：`POST /analyze`。请求体至少包含 `source`，也可附加 `infer_report`；返回切片、审查和 Infer 三部分结果。
+
 该命令要求先生成 `artifacts/draco-prompts.jsonl`，然后自动生成 SymPas 增强 Prompt。
 
 ## 当前状态
