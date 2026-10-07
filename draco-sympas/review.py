@@ -2,7 +2,13 @@
 """Small explainable rule for the first end-to-end review demo."""
 import re
 
-CALL = re.compile(r"^\s*(?P<var>[A-Za-z_]\w*)\s*=\s*(?P<callee>[A-Za-z_]\w*)\s*\(")
+# Also accept common C/Java declarations such as ``int ret = open_config``.
+# This remains a deliberately small rule; richer syntax belongs in the AST
+# and slicing adapters.
+CALL = re.compile(
+    r"^\s*(?:(?:const\s+)?[A-Za-z_]\w*(?:\s*\*\s*)?\s+)?"
+    r"(?P<var>[A-Za-z_]\w*)\s*=\s*(?P<callee>[A-Za-z_]\w*)\s*\("
+)
 
 
 def review_source(source: str):
