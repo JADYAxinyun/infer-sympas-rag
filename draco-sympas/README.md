@@ -37,6 +37,20 @@ INFER_BIN=/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer \
 报告同时保留原始分析字段，并提供稳定的 `structured_report` 字段：`problem`、`evidence`、`slice`、
 `llm_explanation`、`suggestion` 和 `verification`，便于 UI 展示和后续评测。
 
+## 最小对比实验
+
+已有 10 个相同 ReccEval 样本的本地生成结果，可以比较原始 DRaCo Prompt 与 SymPas 增强 Prompt：
+
+```bash
+./draco-sympas/.venv/bin/python draco-sympas/experiments/compare_contexts.py \
+  third_party/draco-upstream/ReccEval/metadata.jsonl \
+  draco-sympas/artifacts/completions-original-10.jsonl \
+  draco-sympas/artifacts/completions-10-v4.jsonl
+```
+
+当前小样本结果：首行相似度由 `0.5226` 提升到 `0.5974`，变化为 `+0.0748`；样本数只有 10，
+只能作为工程 smoke evidence，不能作为论文级结论。
+
 ## 最小 API 演示
 
 当前先提供无第三方依赖的切片 API，方便后续接入 UI：
