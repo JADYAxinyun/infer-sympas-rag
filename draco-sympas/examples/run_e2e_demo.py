@@ -37,19 +37,29 @@ def main():
         },
     }
     infer_bin = os.environ.get("INFER_BIN", "infer")
-    infer_dir = ROOT / "artifacts" / "infer-e2e-out"
-    capture = subprocess.run(
-        [infer_bin, "capture", "--sympas-only", "--results-dir", str(infer_dir), "--",
-         "clang", "-c", str(source_path)], cwd=ROOT, text=True, capture_output=True
-    )
-    infer_report = infer_dir / "report.json"
-    if capture.returncode == 0:
+
+    def infer_for(path, label):
+        infer_dir = ROOT / "artifacts" / f"infer-{label}"
+        capture = subprocess.run(
+            [infer_bin, "capture", "--sympas-only", "--results-dir", str(infer_dir), "--",
+             "clang", "-c", str(path)], cwd=ROOT, text=True, capture_output=True
+        )
+        infer_report = infer_dir / "report.json"
+        if capture.returncode != 0:
+            return {"findings": [], "summary": {"count": 0, "source": "infer"},
+                    "status": "capture_failed"}
         analyze = subprocess.run(
             [infer_bin, "analyze", "--sympas-only", "--results-dir", str(infer_dir)],
             cwd=ROOT, text=True, capture_output=True
         )
-        if analyze.returncode == 0 and infer_report.exists():
-            result["infer"] = normalize_report(json.loads(infer_report.read_text()))
+        if analyze.returncode != 0 or not infer_report.exists():
+            return {"findings": [], "summary": {"count": 0, "source": "infer"},
+                    "status": "analyze_failed"}
+        normalized = normalize_report(json.loads(infer_report.read_text()))
+        normalized["status"] = "ok"
+        return normalized
+
+    result["infer"] = infer_for(source_path, "e2e-out")
     result.setdefault("infer", {"findings": [], "summary": {"count": 0, "source": "infer"}})
     result["llm"] = {"model": "Salesforce/codegen-350M-mono", "explanation": explain(result)}
     review_findings = result["review"].get("findings", [])
@@ -66,12 +76,17 @@ def main():
     repair = propose_return_check(source, review_findings[0]) if review_findings else None
     if repair:
         after = review_source(repair["source"])
+        fixed_path = ROOT / "artifacts" / "unchecked_return_fixed.c"
+        fixed_path.parent.mkdir(exist_ok=True)
+        fixed_path.write_text(repair["source"])
+        infer_after = infer_for(fixed_path, "e2e-fixed")
         result["repair"] = {
             "status": "verified" if after["summary"]["count"] < len(review_findings) else "not_verified",
             "strategy": repair["strategy"],
             "changed_line": repair["line"],
             "before_findings": len(review_findings),
             "after_findings": after["summary"]["count"],
+            "infer_after": infer_after,
             "patched_source": repair["source"],
         }
     else:

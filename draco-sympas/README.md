@@ -37,8 +37,9 @@ INFER_BIN=/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer \
 报告同时保留原始分析字段，并提供稳定的 `structured_report` 字段：`problem`、`evidence`、`slice`、
 `llm_explanation`、`suggestion` 和 `verification`，便于 UI 展示和后续评测。
 
-端到端样例还会对“负数返回值未检查”生成保守修复候选，并重新运行本地规则；只有问题数量下降时才标记为
-`verified`。这是一条规则级验证路径，不代表所有 LLM 修复都能自动应用。
+端到端样例还会对“负数返回值未检查”生成保守修复候选，重新运行本地规则，并将修复后的代码再次交给
+Infer/SymPas。当前 `verified` 表示本地规则发现数下降；Infer/SymPas 仍会报告切片本身（`SYMPAS_SLICE`），
+因此不能把其 finding 数量直接当作“问题已消失”。这是一条受控验证路径，不代表所有 LLM 修复都能自动应用。
 
 ## 最小对比实验
 
