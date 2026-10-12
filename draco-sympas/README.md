@@ -22,6 +22,17 @@ git submodule update --init --recursive
 python draco-sympas/run_pipeline.py
 ```
 
+## 端到端代码审查演示
+
+使用一个 C 返回值未检查样例运行“切片 → 规则审查 → 本地 LLM 解释”，需要使用项目虚拟环境：
+
+```bash
+./draco-sympas/.venv/bin/python draco-sympas/examples/run_e2e_demo.py
+```
+
+报告会写入 `draco-sympas/artifacts/e2e-unchecked-return.json`。该演示中的 Infer 验证结果仍需通过
+`/run-infer` 或独立 Infer 构建流程提供，不能把本地规则结果直接当作 Infer 结论。
+
 ## 最小 API 演示
 
 当前先提供无第三方依赖的切片 API，方便后续接入 UI：
