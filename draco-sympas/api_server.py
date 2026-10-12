@@ -103,7 +103,11 @@ class Handler(BaseHTTPRequestHandler):
                           "review": review_source(source)}
                 if "infer_report" in data:
                     result["infer"] = normalize_report(data["infer_report"])
+                if data.get("llm"):
+                    result["llm"] = {"explanation": explain(result)}
                 self._send(200, result)
+            except ModuleNotFoundError:
+                self._send(503, {"error": "local LLM dependencies missing; use draco-sympas/.venv/bin/python"})
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 self._send(400, {"error": "expected source and optional infer_report"})
             return
