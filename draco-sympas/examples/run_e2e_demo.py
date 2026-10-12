@@ -51,11 +51,23 @@ def main():
             result["infer"] = normalize_report(json.loads(infer_report.read_text()))
     result.setdefault("infer", {"findings": [], "summary": {"count": 0, "source": "infer"}})
     result["llm"] = {"model": "Salesforce/codegen-350M-mono", "explanation": explain(result)}
+    review_findings = result["review"].get("findings", [])
+    infer_findings = result["infer"].get("findings", [])
+    primary = review_findings[0] if review_findings else (infer_findings[0] if infer_findings else {})
+    result["structured_report"] = {
+        "problem": primary.get("rule", "no_configured_finding"),
+        "evidence": infer_findings + review_findings,
+        "slice": result["slice"],
+        "llm_explanation": result["llm"]["explanation"],
+        "suggestion": primary.get("suggestion", "等待人工确认后再应用修改。"),
+        "verification": result["verification"],
+    }
     output = ROOT / "artifacts" / "e2e-unchecked-return.json"
     output.parent.mkdir(exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2))
     print(json.dumps({"output": str(output), "finding_count": result["review"]["summary"]["count"],
-                      "llm": True}, ensure_ascii=False, indent=2))
+                      "infer_finding_count": result["infer"]["summary"]["count"], "llm": True},
+                     ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

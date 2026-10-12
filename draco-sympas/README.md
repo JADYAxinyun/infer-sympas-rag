@@ -34,6 +34,9 @@ INFER_BIN=/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer \
 报告会写入 `draco-sympas/artifacts/e2e-unchecked-return.json`。该演示中的 Infer 验证结果仍需通过
 `INFER_BIN` 指向带有 SymPas Checker 的 Infer 构建；如果不设置，则尝试使用 PATH 中的 `infer`。
 
+报告同时保留原始分析字段，并提供稳定的 `structured_report` 字段：`problem`、`evidence`、`slice`、
+`llm_explanation`、`suggestion` 和 `verification`，便于 UI 展示和后续评测。
+
 ## 最小 API 演示
 
 当前先提供无第三方依赖的切片 API，方便后续接入 UI：
