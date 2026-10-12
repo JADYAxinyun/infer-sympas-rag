@@ -11,7 +11,7 @@ pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
 .hint{color:#64748b}
 </style>
 <h1>DRaCo + SymPas 演示</h1>
-<p class="hint">输入 Python 代码，查看程序切片和返回值检查建议。</p>
+<p class="hint">输入代码，查看程序切片、静态证据、LLM 解释和结构化审查结果。</p>
 <main><section><textarea id="source">def process(x):
     result = load_config(x)
     continue_running()
@@ -25,16 +25,16 @@ pre{background:#f3f6fa;padding:14px;min-height:270px;white-space:pre-wrap}
 +    continue_running()</textarea><br><button id="run-diff">审查 Diff</button>
 
 <h2>Infer 报告</h2>
-<textarea id="infer">[{"bug_type":"DEAD_STORE","file":"data_dependency.c","line":2,"qualifier":"unused","severity":"warning"}]</textarea><br><button id="run-infer">解析 Infer 报告</button>
+<textarea id="infer">[{"bug_type":"DEAD_STORE","file":"data_dependency.c","line":2,"qualifier":"unused","severity":"warning"}]</textarea><br><button id="parse-infer">解析 Infer 报告</button>
 
 <h2>自动运行 Infer</h2>
 <input id="project" style="width:70%;padding:8px" placeholder="项目绝对路径">
 <input id="build" style="width:70%;padding:8px" value="make" placeholder="构建命令，例如 make">
-<label><input type="checkbox" id="llm"> 调用本地 LLM 解释</label><br><button id="run-infer">运行项目审查</button>
+<label><input type="checkbox" id="llm"> 调用本地 LLM 解释</label><br><button id="run-project">运行项目审查</button>
 <script>
 document.querySelector('#run').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='分析中……';
-  try{const source=document.querySelector('#source').value; const analysis=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})}).then(r=>r.json()); const llm=await fetch('/llm-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(analysis)}).then(r=>r.json()); out.textContent=JSON.stringify({analysis,llm},null,2)}
+  try{const source=document.querySelector('#source').value; const analysis=await fetch('/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source,llm:document.querySelector('#llm').checked})}).then(r=>r.json()); out.textContent=JSON.stringify(analysis,null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 
@@ -44,13 +44,13 @@ document.querySelector('#run-diff').onclick=async()=>{
   catch(e){out.textContent='请求失败：'+e}
 };
 
-document.querySelector('#run-infer').onclick=async()=>{
+document.querySelector('#parse-infer').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='解析 Infer 报告中……';
   try{const r=await fetch('/infer-report',{method:'POST',headers:{'Content-Type':'application/json'},body:document.querySelector('#infer').value}); out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent='请求失败：'+e}
 };
 
-document.querySelector('#run-infer').onclick=async()=>{
+document.querySelector('#run-project').onclick=async()=>{
   const out=document.querySelector('#out'); out.textContent='运行 Infer 中……';
   try{const project=document.querySelector('#project').value; const build=document.querySelector('#build').value.trim().split(/\s+/); const source=document.querySelector('#source').value; const r=await fetch('/project-review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project,build_command:build,source,llm:document.querySelector('#llm').checked})}); out.textContent=JSON.stringify(await r.json(),null,2)}
   catch(e){out.textContent='请求失败：'+e}
