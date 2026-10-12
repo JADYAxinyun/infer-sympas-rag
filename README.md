@@ -17,9 +17,17 @@ Infer SIL
 
 ## Current Status
 
-**Planning / environment preparation**
+**Runnable research MVP**
 
-目前已建立项目骨架和最小测试用例，尚未完成自定义 Infer Checker、SymPas 算法复现或实验结果。
+当前项目已经打通：
+
+```text
+Infer/SymPas → program slice → DRaCo context → local LLM → review report
+```
+
+已验证跨过程摘要、全局依赖、递归、简单指针别名和聚合内存场景；同时提供本地 API、UI、结构化 JSON 报告和 7 个自动化测试。当前仍是研究型原型，不等同于完整复现论文或生产级代码审查系统。
+
+最近一次本地结果：7 个测试通过；10 个 ReccEval 样本的最小对比实验中，首行相似度从 0.5226 提升到 0.5974。该结果样本量较小，仅作为工程证据。
 
 ## Repository Layout
 
@@ -31,17 +39,20 @@ Infer SIL
 
 ## Roadmap
 
-- [ ] 在 macOS ARM64 上构建 Infer C/C++ 分析支持
-- [ ] 查看最小 C 程序的 SIL 与 CFG
-- [ ] 注册空的 SymPas Checker
-- [ ] 实现过程内后向数据依赖切片
-- [ ] 加入控制依赖
-- [ ] 加入过程摘要与调用点实例化
-- [ ] 导出结构化 JSON 切片
-- [ ] 将切片接入代码 RAG Prompt
-- [ ] 比较完整函数、固定窗口和 SymPas 切片上下文
-- [ ] 加入 LLM 候选规格验证
-- [ ] 扩展为 Agent 调度闭环
+- [x] 在 macOS ARM64 上构建 Infer C/C++ 分析支持
+- [x] 查看并验证最小 C 程序的 SIL/CFG 相关切片结果
+- [x] 注册 SymPas Checker
+- [x] 实现过程内后向数据依赖切片
+- [x] 加入初步控制依赖
+- [x] 加入形式参数/全局变量过程摘要与调用点传播（原型）
+- [x] 导出结构化 JSON 切片和统一 finding
+- [x] 将切片接入代码 RAG Prompt
+- [x] 比较 DRaCo 与 DRaCo + SymPas 上下文
+- [x] 接入本地 LLM 解释
+- [x] 完成固定工作流 Agent 闭环
+- [ ] 增加自动修复并重新运行 Infer 验证
+- [ ] 扩大对比实验并记录 Precision/Recall/F1、Token 和延迟
+- [ ] 增加自主工具选择和失败重试
 
 ## Research Basis
 
@@ -51,6 +62,21 @@ Infer SIL
 - Interleaving Static Analysis and LLM Prompting
 
 详见 [`docs/references.md`](docs/references.md)。
+
+## Quick Demo
+
+使用带 SymPas Checker 的 Infer 和项目虚拟环境运行端到端 C 代码审查：
+
+```bash
+INFER_BIN=/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer \
+  ./draco-sympas/.venv/bin/python draco-sympas/examples/run_e2e_demo.py
+```
+
+结果写入 `draco-sympas/artifacts/e2e-unchecked-return.json`。运行测试：
+
+```bash
+./draco-sympas/.venv/bin/python -m pytest -q draco-sympas/tests
+```
 
 ## Disclaimer
 
