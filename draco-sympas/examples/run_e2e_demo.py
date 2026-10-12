@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "adapter"))
 from infer_adapter import normalize_report  # noqa: E402
 from llm_service import explain  # noqa: E402
 from python_slice import slice_source, token_fallback  # noqa: E402
+from repair import propose_return_check  # noqa: E402
 from review import review_source  # noqa: E402
 
 
@@ -62,6 +63,19 @@ def main():
         "suggestion": primary.get("suggestion", "等待人工确认后再应用修改。"),
         "verification": result["verification"],
     }
+    repair = propose_return_check(source, review_findings[0]) if review_findings else None
+    if repair:
+        after = review_source(repair["source"])
+        result["repair"] = {
+            "status": "verified" if after["summary"]["count"] < len(review_findings) else "not_verified",
+            "strategy": repair["strategy"],
+            "changed_line": repair["line"],
+            "before_findings": len(review_findings),
+            "after_findings": after["summary"]["count"],
+            "patched_source": repair["source"],
+        }
+    else:
+        result["repair"] = {"status": "not_available"}
     output = ROOT / "artifacts" / "e2e-unchecked-return.json"
     output.parent.mkdir(exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2))

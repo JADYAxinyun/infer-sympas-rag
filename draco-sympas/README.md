@@ -37,6 +37,9 @@ INFER_BIN=/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer \
 报告同时保留原始分析字段，并提供稳定的 `structured_report` 字段：`problem`、`evidence`、`slice`、
 `llm_explanation`、`suggestion` 和 `verification`，便于 UI 展示和后续评测。
 
+端到端样例还会对“负数返回值未检查”生成保守修复候选，并重新运行本地规则；只有问题数量下降时才标记为
+`verified`。这是一条规则级验证路径，不代表所有 LLM 修复都能自动应用。
+
 ## 最小对比实验
 
 已有 10 个相同 ReccEval 样本的本地生成结果，可以比较原始 DRaCo Prompt 与 SymPas 增强 Prompt：
