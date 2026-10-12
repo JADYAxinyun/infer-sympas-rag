@@ -27,11 +27,12 @@ python draco-sympas/run_pipeline.py
 使用一个 C 返回值未检查样例运行“切片 → 规则审查 → 本地 LLM 解释”，需要使用项目虚拟环境：
 
 ```bash
-./draco-sympas/.venv/bin/python draco-sympas/examples/run_e2e_demo.py
+INFER_BIN=/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer \
+  ./draco-sympas/.venv/bin/python draco-sympas/examples/run_e2e_demo.py
 ```
 
 报告会写入 `draco-sympas/artifacts/e2e-unchecked-return.json`。该演示中的 Infer 验证结果仍需通过
-`/run-infer` 或独立 Infer 构建流程提供，不能把本地规则结果直接当作 Infer 结论。
+`INFER_BIN` 指向带有 SymPas Checker 的 Infer 构建；如果不设置，则尝试使用 PATH 中的 `infer`。
 
 ## 最小 API 演示
 
