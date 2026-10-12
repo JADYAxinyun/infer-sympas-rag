@@ -13,6 +13,7 @@ __pycache__/
 
 # Infer / OCaml build products
 infer-out/
+draco-sympas/examples/infer-*-e2e/
 sympas-out*/
 _build/
 _opam/
