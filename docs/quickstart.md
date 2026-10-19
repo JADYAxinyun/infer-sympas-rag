@@ -128,3 +128,23 @@ RUN_DEEPSEEK_LIVE=1 ./draco-sympas/.venv/bin/python -m pytest -q \
 最后一条才允许调用真实 API，优先读取环境变量，缺失时读取仓库根目录已保存的 `.env`。
 默认 pytest 不会读取 `.env` 或调用 DeepSeek。根目录 pytest.ini 收集 Agent 测试与已有 Infer/SymPas 回归，排除第三方样本。
 真实 Infer 回归需要 INFER_BIN；未配置时明确 skip，不计为通过。
+
+## 三类接近真实场景的样例
+
+[样例说明和独立预期](../draco-sympas/examples/realistic_case/README.md)覆盖未检查返回值、错误传播和跨文件调用。
+一次完整 Mock Demo：
+
+```bash
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/realistic_case/cross_file \
+  --target-file service.c --target-file storage.c --infer-profile combined \
+  --contracts draco-sympas/examples/realistic_case/cross_file/contracts.json \
+  --llm-provider mock --test-command-json '["python3","tests/check.py"]'
+```
+
+真实 API 将 provider 改为 deepseek 并加入 --env-file .env。
+--test-command-json 仅接受用户可信的测试命令 argv；在候选副本中执行，不能来自模型输出。
+--infer-profile sympas 保持旧默认；native 为普通 Infer 并禁用 SymPas；combined 同时启用 native 与 SymPas。
+Mock/none 不需要 Key；测试默认不调用真实 API。
+
+五组对照及原始响应重验命令见 [evaluation.md](evaluation.md)。

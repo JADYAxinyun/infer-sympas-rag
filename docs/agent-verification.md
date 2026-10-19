@@ -130,3 +130,5 @@ INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/c
 ```
 
 不再需要为当前 Key 继续认证排障；后续扩大独立真实项目标签及行为验证。
+
+下一阶段的三类样例、候选行为验证、五组对照及独立路径核心限制，见 [realistic-verification.md](realistic-verification.md)。

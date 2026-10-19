@@ -79,3 +79,29 @@ DRaCo 片段同时匹配 index.json 与 retrieval.json，规则匹配 rules.json
 未提供原始产物只能部分验证；无引用时不标 verified。
 只有上下文或切片、没有规则/缺陷事实时，不接受 confirmed/likely，要求 evidence_insufficient。
 这些是来源和完整性检查，仍不能证明模型推理或候选修复的语义正确性。
+
+## 接近真实场景的样例和候选验证
+
+`examples/realistic_case/` 的三类构造案例各自包含源码、契约、expected.json 和独立行为 oracle。
+它们用于 small-scale prototype evaluation，不作为真实生产缺陷或普遍泛化证据。
+
+`repair_validation.py` 读取来源明确的候选 unified diff，检查目标范围和窄范围返回值 guard 语法，
+拒绝路径逃逸、新增/删除/重命名文件、二进制/模式修改、测试和配置修改、任意新增调用。
+随后复制仓库到独立工作区，排除秘密文件、缓存、模型和符号链接；测试子进程不继承 API Key。
+只执行用户显式提供的测试 argv，shell=False，不执行模型给出的命令。
+在副本中记录原规则/行为结果，再 git apply --check/apply、语法检查、同配置 Infer、规则和行为复查。
+补丁不适用、重查失败或 oracle 不通过都返回 validation_failed；不应用到输入仓库。
+即便有限测试全部通过仍只标 partially_verified，不把候选提升为普遍正确的修复。
+
+阶段产物包括 infer.json、slice.json、retrieval.json、context.json、llm_response.json、validation.json、review.md；
+兼容保留 index、rules、slices、evidence、prompt、run 等旧文件。
+context 太小、无切片、无检索、模型超时/缺 Key/非法 JSON、引用错误和修复失败均记录阶段状态与原因。
+子目录 review 仅收集该目录的 Git Diff，不带入共享仓库中其他项目的改动。
+
+五模式配置：A 仅 native Infer；B native Infer + SymPas + 本地规则；C 增加关系检索；D 增加 Mock；E 显式增加 DeepSeek。
+A 不使用切片或本地规则，B-E 使用相同 native+SymPas Checker 配置；不能把 A/B 差异仅归因于切片。
+
+Context Builder 对每类证据先保留一个代表，按规则调用点优先切片、按 callee 优先仓库代码，随后补齐其余记录。
+Prompt 中省去重复的 SIL 指令文本，但保留来源位置、符号、控制/数据依赖和调用点；原始文本完整保存在证据文件中。
+检索命中与真正进入 Prompt 分别计量；无法装载的记录必须留下 dropped 原因。
+审查验证与 candidate_validation_status 独立记录，候选失败时 CLI 返回非零并仍写完整报告。

@@ -1,0 +1,14 @@
+{
+  "flush_state": {
+    "kind": "status",
+    "checks_required": true,
+    "source": "manual_fixture_contract",
+    "evidence": "error_propagation: source and trusted behavior oracle require propagating negative errors"
+  },
+  "persist_state": {
+    "kind": "status",
+    "checks_required": true,
+    "source": "manual_fixture_contract",
+    "evidence": "Negative input returns -2; checked by flush_state"
+  }
+}

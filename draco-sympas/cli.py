@@ -23,9 +23,12 @@ def main():
     review.add_argument('--env-file', type=Path, help='Explicit local DeepSeek settings file; existing environment takes precedence')
     review.add_argument('--infer-mode', choices=['real', 'mock', 'off'], default='real')
     review.add_argument('--infer-bin')
+    review.add_argument('--infer-profile', choices=['sympas', 'native', 'combined'], default='sympas')
     review.add_argument('--retrieval', choices=['relations', 'text', 'off'], default='relations')
     review.add_argument('--token-budget', type=int, default=16000)
     review.add_argument('--max-contexts', type=int, default=8)
+    review.add_argument('--contracts', type=Path, help='Explicit return-contract JSON')
+    review.add_argument('--test-command-json', type=json.loads, help='Trusted test command argv as JSON; runs in candidate copy')
     report = commands.add_parser('report')
     report.add_argument('--input', required=True)
     report.add_argument('--format', choices=['markdown', 'json'], default='markdown')
@@ -38,13 +41,16 @@ def main():
             result = ReviewAgent().review(args.repo, diff=args.diff.read_text() if args.diff else None,
                                           target_files=args.target_file, output_dir=args.output,
                                           llm_provider=args.llm_provider, model=args.model,
-                                          infer_mode=args.infer_mode, infer_bin=args.infer_bin,
+                                          infer_mode=args.infer_mode, infer_bin=args.infer_bin, infer_profile=args.infer_profile,
                                           retrieval=args.retrieval, token_budget=args.token_budget,
-                                          max_contexts=args.max_contexts)
+                                          max_contexts=args.max_contexts,
+                                          return_contracts=json.loads(args.contracts.read_text()) if args.contracts else None,
+                                          test_command=args.test_command_json)
             print(json.dumps(dict(output=result['output_dir'], findings=len(result['findings']),
                                   infer=result['infer']['status'], slice_status=result['slice_status'], llm=result['llm']['status'],
-                                  parse_status=result['llm']['parse_status'], error=result['llm'].get('error'), validation=result['validation']['status'])))
-            return 2 if result['infer']['status'] in {'execution_failed', 'report_parse_failed', 'missing_report'} or result['llm']['status'] not in {'ok', 'not_run'} or result['validation']['status'] == 'validation_failed' else 0
+                                  parse_status=result['llm']['parse_status'], error=result['llm'].get('error'), validation=result['validation']['status'],
+                                  candidate_validation=result['candidate_validation_status'])))
+            return 2 if result['infer']['status'] in {'execution_failed', 'report_parse_failed', 'missing_report'} or result['llm']['status'] not in {'ok', 'not_run'} or result['validation']['status'] == 'validation_failed' or result['candidate_validation_status'] == 'validation_failed' else 0
         destination = Path(args.output)
         if destination.exists():
             raise ValueError('Output exists; choose a new path to preserve evidence')

@@ -1,0 +1,663 @@
+{
+  "scope": "small-scale prototype evaluation",
+  "source_run": "20261019T150241757954Z",
+  "source_path": "draco-sympas/artifacts/realistic-evaluation/20261019T150241757954Z",
+  "source_provenance": "3 constructed realistic fixtures; not production defects",
+  "note": "Derived from preserved receipts; review and candidate validation are separated, no new API calls.",
+  "rows": [
+    {
+      "case": "cross_file",
+      "mode": "A_infer_only",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": false,
+      "expected_slice_found": null,
+      "key_context_found": null,
+      "key_evidence_in_prompt": null,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "not_analyzed",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 680.219,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [],
+      "candidate_origins": [],
+      "candidate_behavior_pass": [],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": null,
+      "candidate_reasons": [],
+      "candidate_tests_before": [],
+      "candidate_tests_after": [],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "cross_file",
+      "mode": "B_infer_slice",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": null,
+      "key_evidence_in_prompt": null,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1928.336,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "cross_file",
+      "mode": "C_infer_slice_draco",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1798.226,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "cross_file",
+      "mode": "D_full_mock",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": true,
+      "llm_parse_success": true,
+      "validation_passed": true,
+      "validation_status": "partially_verified",
+      "model_conclusion": "likely",
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1751.854,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "704e1cedcfb9b53b4e61f7bb51a3f84686c2f81faf1a6da4a295fcbe9ea927a1"
+    },
+    {
+      "case": "cross_file",
+      "mode": "E_full_deepseek",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": true,
+      "llm_parse_success": true,
+      "validation_passed": true,
+      "validation_status": "partially_verified",
+      "model_conclusion": "confirmed",
+      "slice_status": "partial",
+      "api_status": "ok",
+      "token_usage": {
+        "prompt_tokens": 3457,
+        "completion_tokens": 1825,
+        "total_tokens": 5282,
+        "prompt_tokens_details": {
+          "cached_tokens": 384
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1370
+        },
+        "prompt_cache_hit_tokens": 384,
+        "prompt_cache_miss_tokens": 3073
+      },
+      "elapsed_ms": 10697.494,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "llm"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "bf3117990a45ab6e1d1662a9d2f7bf13da4e640ffa4d2b40b65548183a9c2dab"
+    },
+    {
+      "case": "error_propagation",
+      "mode": "A_infer_only",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": false,
+      "expected_slice_found": null,
+      "key_context_found": null,
+      "key_evidence_in_prompt": null,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "not_analyzed",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 335.258,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [],
+      "candidate_origins": [],
+      "candidate_behavior_pass": [],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": null,
+      "candidate_reasons": [],
+      "candidate_tests_before": [],
+      "candidate_tests_after": [],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "error_propagation",
+      "mode": "B_infer_slice",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": null,
+      "key_evidence_in_prompt": null,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1468.475,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "error_propagation",
+      "mode": "C_infer_slice_draco",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1539.845,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "error_propagation",
+      "mode": "D_full_mock",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": true,
+      "llm_parse_success": true,
+      "validation_passed": true,
+      "validation_status": "partially_verified",
+      "model_conclusion": "likely",
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1497.457,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "ffabde07891daa150e8ed8e67688abbf01b233300e9565600f9e5cbee69ba749"
+    },
+    {
+      "case": "error_propagation",
+      "mode": "E_full_deepseek",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": true,
+      "llm_parse_success": true,
+      "validation_passed": false,
+      "validation_status": "partially_verified",
+      "model_conclusion": "confirmed",
+      "slice_status": "partial",
+      "api_status": "ok",
+      "token_usage": {
+        "prompt_tokens": 3882,
+        "completion_tokens": 1269,
+        "total_tokens": 5151,
+        "prompt_tokens_details": {
+          "cached_tokens": 384
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 850
+        },
+        "prompt_cache_hit_tokens": 384,
+        "prompt_cache_miss_tokens": 3498
+      },
+      "elapsed_ms": 9304.891,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "validation_failed"
+      ],
+      "candidate_origins": [
+        "llm"
+      ],
+      "candidate_behavior_pass": [
+        false
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": false,
+      "candidate_reasons": [
+        [
+          "patch_does_not_apply"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        null
+      ],
+      "llm_receipt_sha256": "8a8e4b0fbc92961371d31c061951ea17513c893352d2102dc753dbd7698de52c"
+    },
+    {
+      "case": "unchecked_return",
+      "mode": "A_infer_only",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": false,
+      "expected_slice_found": null,
+      "key_context_found": null,
+      "key_evidence_in_prompt": null,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "not_analyzed",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 365.5,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [],
+      "candidate_origins": [],
+      "candidate_behavior_pass": [],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": null,
+      "candidate_reasons": [],
+      "candidate_tests_before": [],
+      "candidate_tests_after": [],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "unchecked_return",
+      "mode": "B_infer_slice",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": null,
+      "key_evidence_in_prompt": null,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1376.092,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "unchecked_return",
+      "mode": "C_infer_slice_draco",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": null,
+      "llm_parse_success": null,
+      "validation_passed": true,
+      "validation_status": "not_verified",
+      "model_conclusion": null,
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1471.634,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "e5c2a9b15b536ab21ff0a0196d6cec774ac126726c6ec23c3f6199ab60474c6c"
+    },
+    {
+      "case": "unchecked_return",
+      "mode": "D_full_mock",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": true,
+      "llm_parse_success": true,
+      "validation_passed": true,
+      "validation_status": "partially_verified",
+      "model_conclusion": "likely",
+      "slice_status": "partial",
+      "api_status": "not_run",
+      "token_usage": null,
+      "elapsed_ms": 1288.77,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "partially_verified"
+      ],
+      "candidate_origins": [
+        "local_rule"
+      ],
+      "candidate_behavior_pass": [
+        true
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": true,
+      "candidate_reasons": [
+        [
+          "bounded_checks_passed"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        0
+      ],
+      "llm_receipt_sha256": "d9d7f931e8b11b048ca4257083b33d9b9dedbc94d484cf858069268eacdbaad2"
+    },
+    {
+      "case": "unchecked_return",
+      "mode": "E_full_deepseek",
+      "detected": true,
+      "native_expected_finding_found": true,
+      "rule_expected_finding_found": true,
+      "expected_slice_found": true,
+      "key_context_found": true,
+      "key_evidence_in_prompt": true,
+      "evidence_refs_valid": true,
+      "llm_parse_success": true,
+      "validation_passed": false,
+      "validation_status": "partially_verified",
+      "model_conclusion": "confirmed",
+      "slice_status": "partial",
+      "api_status": "ok",
+      "token_usage": {
+        "prompt_tokens": 3476,
+        "completion_tokens": 1525,
+        "total_tokens": 5001,
+        "prompt_tokens_details": {
+          "cached_tokens": 384
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1089
+        },
+        "prompt_cache_hit_tokens": 384,
+        "prompt_cache_miss_tokens": 3092
+      },
+      "elapsed_ms": 8445.216,
+      "baseline_behavior_failed_as_expected": true,
+      "candidate_statuses": [
+        "validation_failed"
+      ],
+      "candidate_origins": [
+        "llm"
+      ],
+      "candidate_behavior_pass": [
+        false
+      ],
+      "artifacts_complete": true,
+      "review_validation_passed": true,
+      "candidate_validation_passed": false,
+      "candidate_reasons": [
+        [
+          "patch_does_not_apply"
+        ]
+      ],
+      "candidate_tests_before": [
+        1
+      ],
+      "candidate_tests_after": [
+        null
+      ],
+      "llm_receipt_sha256": "029234b25c95800b0596e1f4d2e9f1ebb5aaf6c98d11263b2c36413618dc36cc"
+    }
+  ]
+}

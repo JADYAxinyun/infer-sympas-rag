@@ -2,6 +2,21 @@
 
 ## 统一审查 Agent（增量集成）
 
+新增三类接近真实场景的人工样例：未检查返回值、错误传播、跨文件调用，均有独立预期和行为测试。
+候选补丁只在副本中应用，并重跑 Infer、规则和测试；错误补丁会被拒绝，原仓库不自动应用修复。
+
+```bash
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/realistic_case/cross_file \
+  --target-file service.c --target-file storage.c --infer-profile combined \
+  --contracts draco-sympas/examples/realistic_case/cross_file/contracts.json \
+  --llm-provider mock --test-command-json '["python3","tests/check.py"]'
+```
+
+真实 API 使用 `--llm-provider deepseek --env-file .env`。
+[样例与预期](draco-sympas/examples/realistic_case/README.md) · [五组结果](docs/evaluation.md) · [本轮验收](docs/realistic-verification.md)。
+研究型 MVP；partial 仍保留，候选不保证自动正确，DeepSeek 不替代静态分析，结论依赖证据和本地验证。
+
 本轮进一步将 SymPas 输出通过独立 Agent adapter 转为 SliceResult，正常传递 `slice_status=partial`。
 证据引用对照原始 Infer、切片、检索、规则记录与源码 hash；Markdown 直接展示三类证据和验证状态。
 完整跨文件 Demo：

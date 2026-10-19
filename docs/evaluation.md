@@ -52,3 +52,49 @@ A/B 漏报来自没有显式契约的未知负返回值 API；C/D 命中来自 I
 DeepSeek 使用 HTTP 模拟测试覆盖 Key 缺失、请求格式、超时、重试、401、畸形响应及原始响应保存。
 真实 DeepSeek 测试由于未配置 Key 保持 NOT_RUN，默认 pytest 会跳过；显式开启命令见 quickstart。
 本地 CodeGen 本轮未下载或运行。
+
+## 三类接近真实场景的五组验证（2026-10-19）
+
+本轮为 **small-scale prototype evaluation**：3 个构造正例 × 5 个模式，共 15 次。
+源码、独立预期和行为 oracle 见 [样例说明](../draco-sympas/examples/realistic_case/README.md)。
+完整机器可读汇总见 [realistic-evaluation-results.json](realistic-evaluation-results.json)。
+
+| 模式 | 实际发现 | 预期切片 | 关键上下文实际入 Prompt | JSON/引用有效 | 候选结果 |
+|---|---:|---:|---:|---:|---|
+| A Infer only | 3/3 | 不运行 | 不运行 | 不运行 | 不生成 |
+| B Infer + SymPas + 本地规则 | 3/3 | 3/3 | 不运行 | 不运行 | 本地候选 3/3 部分验证 |
+| C 再加 DRaCo | 3/3 | 3/3 | 3/3 | 不运行 | 本地候选 3/3 部分验证 |
+| D 再加 Mock | 3/3 | 3/3 | 3/3 | 3/3 | 本地候选 3/3 部分验证 |
+| E 再加 DeepSeek | 3/3 | 3/3 | 3/3 | 3/3 | 模型候选 1 个部分验证，2 个应用失败 |
+
+A 的发现是 native Infer DEAD_STORE，不等于已独立证明 API 错误契约。
+B-E 同时使用 native Infer 和 SymPas，并启用同一显式本地契约规则。
+全部模式已命中这三个简单正例，因此没有证据表明添加 LLM 提高了检测准确率。
+A/B 还涉及规则策略差异，不能把差异单独归因于切片。不存在普遍泛化或论文级结论。
+
+最终运行目录：`draco-sympas/artifacts/realistic-evaluation/20261019T150241757954Z/`。
+E 三次真实调用均成功，JSON 和引用都有效，共计 15434 个实际 API tokens。
+跨文件模型补丁通过应用、同配置 Infer、规则及行为复查，行为退出码从 1 变为 0；仍为 partially_verified。
+另外两个模型补丁的 hunk 计数错误，被 git apply --check 拒绝，标为 validation_failed；不静默修正模型文本。
+审查引用验证与候选验证分列，不能用引用有效替代修复成功。
+
+### 复现
+
+```bash
+export INFER_BIN=/absolute/path/to/infer
+./draco-sympas/.venv/bin/python draco-sympas/evaluation/evaluate_realistic.py
+./draco-sympas/.venv/bin/python draco-sympas/evaluation/evaluate_realistic.py \
+  --live-deepseek --env-file .env
+```
+
+默认 A-D 执行，E 为 not_run；--live-deepseek 显式开启费用和网络。
+对已有 E 响应重验补丁（不会重新调用 API或覆盖原始报告）：
+
+```bash
+./draco-sympas/.venv/bin/python draco-sympas/evaluation/evaluate_realistic.py \
+  --revalidate /absolute/path/to/evaluation-run
+```
+
+每行记录检测、切片、检索命中、Prompt 实际装载、引用、JSON、审查/候选验证、耗时、API 状态和真实 usage。
+各阶段产物按运行目录保存，模型波动可能改变结论或 patch，不能把固定一次结果当作恒定指标。
+早期运行和失败回执保留；最终结果修复了预算挤掉关键上下文的问题。

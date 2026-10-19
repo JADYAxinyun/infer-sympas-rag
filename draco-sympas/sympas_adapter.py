@@ -20,6 +20,8 @@ class SymPasAdapter:
                       procedures=sorted({raw.get('procedure', 'unknown')} | {call.get('callee', 'unknown') for call in calls}),
                       dependencies=dict(data=raw.get('data_dependencies', []),
                                         control=raw.get('control_dependencies', []), calls=calls))
+        result['call_sites'] = [snapshot for snapshot in raw.get('instruction_slices', [])
+                                if snapshot.get('instruction', {}).get('event') == 'call']
         if declared != status:
             result['adapter_warning'] = 'unrecognized_status'
         return result

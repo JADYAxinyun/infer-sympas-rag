@@ -7,7 +7,7 @@ from pathlib import Path
 from infer_adapter import normalize_report
 
 
-def run_infer(project, build_command, infer_bin='infer', results_dir=None, *, sympas_only=False, timeout=120):
+def run_infer(project, build_command, infer_bin='infer', results_dir=None, *, sympas_only=False, timeout=120, checker_args=None):
     project = Path(project).resolve()
     results = Path(results_dir or project / 'infer-out').resolve()
     results.mkdir(parents=True, exist_ok=True)
@@ -15,7 +15,7 @@ def run_infer(project, build_command, infer_bin='infer', results_dir=None, *, sy
     if report_path.exists():
         return dict(ok=False, status='results_exist', returncode=None, findings=[],
                     stdout='', stderr='Use a fresh results directory to preserve prior evidence.', commands=[])
-    options = ['--sympas-only'] if sympas_only else []
+    options = ['--sympas-only'] if sympas_only else list(checker_args or [])
     commands = [[infer_bin, 'capture'] + options + ['--results-dir', str(results), '--'] + list(build_command),
                 [infer_bin, 'analyze'] + options + ['--results-dir', str(results)]]
     logs = []

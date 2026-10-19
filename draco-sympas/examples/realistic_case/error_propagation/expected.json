@@ -1,0 +1,46 @@
+{
+  "provenance": "constructed realistic fixture; not an independently observed production defect",
+  "category": "error_propagation",
+  "targets": [
+    "pipeline.c"
+  ],
+  "contracts": "contracts.json",
+  "test_command": [
+    "python3",
+    "tests/check.py"
+  ],
+  "expected_infer": {
+    "native_bug_kind": "DEAD_STORE",
+    "structured_kind": "SYMPAS_SLICE",
+    "contract_candidate_kind": "SYMPAS_RETURN_CONTRACT_CANDIDATE"
+  },
+  "expected_slice": {
+    "procedure": "handle_request",
+    "status_allowed": [
+      "partial",
+      "complete"
+    ],
+    "required_callee": "flush_state"
+  },
+  "expected_context": {
+    "file": "pipeline.c",
+    "procedure": "flush_state"
+  },
+  "expected_review": {
+    "rule": "unchecked_return_value",
+    "callee": "flush_state",
+    "count": 1,
+    "caller": "handle_request",
+    "line": 13
+  },
+  "expected_behavior": {
+    "before_exit": 1,
+    "after_exit": 0
+  },
+  "allowed_error": [
+    "Conservative slice may include additional dependencies.",
+    "Model conclusion may be likely/confirmed/uncertain; schema and references must validate.",
+    "Model patch may be null or rejected; local-rule candidate remains explicitly labeled."
+  ],
+  "verification": "Run real Infer, match callsite rule and callee context, validate references; execute trusted runtime oracle before/after candidate in a copy."
+}

@@ -1,0 +1,8 @@
+{
+  "write_file": {
+    "kind": "status",
+    "checks_required": true,
+    "source": "manual_fixture_contract",
+    "evidence": "cross_file: source and trusted behavior oracle require propagating negative errors"
+  }
+}

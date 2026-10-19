@@ -1,0 +1,8 @@
+{
+  "load_config": {
+    "kind": "status",
+    "checks_required": true,
+    "source": "manual_fixture_contract",
+    "evidence": "unchecked_return: source and trusted behavior oracle require propagating negative errors"
+  }
+}
