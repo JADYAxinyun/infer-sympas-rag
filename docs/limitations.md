@@ -12,9 +12,11 @@
 - Diff 是上下文，默认不构成改动行过滤器；需要精确范围时明确指定 target_files。
 - 本地 CodeGen 可被调用，但可能不遵循 JSON 格式；解析失败不会伪装成成功判断。本轮未运行本地模型。
 - DeepSeek 可配置；HTTP 模拟测试不等于真实 API 成功。没有 Key 时 live 验证保持 NOT_RUN。
-- JSON/引用验证只能检查结构、已提供 ID、来源以及源码文件/行号，不能证明模型推理正确或输入代码安全。
+- JSON/引用验证对照本轮原始 Infer、切片、索引、检索、规则和源码 hash；它只能验证来源与完整性，不能证明模型推理正确或输入代码安全。
 - 预算用 UTF-8 字节数保守估算，可能明显少用真实上下文窗口。实际计费 token 仅使用 API usage，不能由此估算替代。
 - 候选修复使用原有 negative_return_check 策略，生成独立文件，不应用模型 patch。它可能不符合函数返回类型、清理职责或实际 API 契约。
 - 修复状态 verified 保留给充分验证；本流程即使规则下降、clang 通过、Infer 再查成功，仍只标 partially_verified，因为尚无语义等价或运行时测试证明。
 - 切片和契约候选不是漏洞，不能通过 Infer 总 issue 数下降宣称修复正确。
 - 四组评估仅为 prototype smoke evaluation，4 个构造案例，LLM 使用 Mock；不代表大型真实项目、真实模型效果或泛化准确率。
+
+- SymPas 核心在其他对话持续迭代；本轮只修改 Agent adapter。保留 partial 和未来未知字段，不以字段转换宣称完成算法复现。

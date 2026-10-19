@@ -45,3 +45,57 @@ INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python -m pytest -q \
 可运行、可测试、可演示的研究型 MVP。候选修复仅部分验证，源码仓库不自动应用修复。
 SymPas 保留 partial，DRaCo 图为窄范围静态关系实现；没有通用精度或生产级声明。
 后续优先进行一次显式 DeepSeek smoke，再扩充独立真实项目与人工标签；不能用 Mock 成功代替真实模型效果。
+
+## 二轮 Agent 验收（2026-10-19）
+
+基线：`c89c01e`（本地与 origin/main 当时一致）。本轮只修改 Agent、配置入口、测试与文档，
+没有修改 infer-sympas 的核心算法、SIL/CFG、摘要、SCC 或依赖实现。
+其他对话在共享工作区产生的 Checker、文档、补丁与测试修改均留在其原位，未纳入本轮暂存。
+
+### 实际补齐
+
+- 新增 SymPasAdapter → SliceResult，兼容 analysis_status/status，保留 raw_slice 和 partial。
+- 原始引用对照：Infer report、Checker slice、索引、检索记录、本地规则与源码 hash。
+- 拒绝已知 ID 的内容篡改、未知 ID、无效位置、源码变化及只有切片/上下文却确认缺陷的模型结论。
+- 传输成功和 JSON/schema 成功分开为 llm.status / llm.parse_status；原始响应保留。
+- Markdown 直接展示 Infer、SymPas、DRaCo、slice_status、模型引用、验证及候选复查。
+- 新增被跟踪的跨文件 examples/agent_demo；原有 Demo/API 不改写。
+- --env-file 显式加载本机 DeepSeek 配置；仅 live 显式开启时测试读取根目录 .env。
+- pytest.ini 只收集项目测试，避免执行 third_party/ReccEval 中作为数据的第三方测试。
+
+### 验证与回执
+
+1. 初始 Agent 测试：46 passed、2 skipped；初始根目录 pytest 误收集第三方测试而失败。
+2. 修正收集后默认离线测试通过；带真实 Infer 的当轮完整工作区测试：81 passed、1 skipped、9 subtests passed。
+3. **本次仅暂存内容的独立快照：71 passed、1 skipped**，不依赖其他对话未提交文件。
+4. 同一独立快照：真实 Infer + Mock、none 均成功；缺 Key 的 deepseek 明确返回 configuration_error，CLI 退出码 2。
+5. 当前跨文件真实 Infer + Mock Demo：4 条分析器输出记录（切片/候选不是漏洞），2 个 partial 切片，2 个检索片段，1 条本地规则 finding。
+6. 模型引用 9 个实际证据 ID，9 项原始产物/来源检查全部通过；evidence.status=verified，整体仍为 partially_verified。
+7. JSON、Markdown、slices.json、rules.json、Prompt 与全部中间产物正常生成；候选修复不应用到源代码。
+8. 真实 DeepSeek 已按用户授权调用，**FAILED / HTTP 401**。这不是 NOT_RUN，也不是成功。
+   `.env` 已被读取，Python 与 curl 的官方只读 /models 认证探测均失败；服务端归类 authentication_error / invalid_key。
+   不把本地格式正常解释为服务端认证成功；不保存密钥或 Authorization headers。
+
+已执行命令：
+
+```bash
+./draco-sympas/.venv/bin/python -m pytest -q
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python -m pytest -q
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --llm-provider mock
+./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --infer-mode off --llm-provider none
+RUN_DEEPSEEK_LIVE=1 ./draco-sympas/.venv/bin/python -m pytest -q \
+  draco-sympas/tests/test_deepseek_live.py
+```
+
+本机回执：
+
+- `artifacts/agent/20261019T075655348831Z/`：本轮真实 Infer + Mock 完整报告。
+- `artifacts/agent/20261019T075658166756Z/`：none 模式。
+- `artifacts/deepseek-live-20261019-01/test_live_deepseek_json0/deepseek-receipt.json`：真实 API 的 401 失败回执，不含 Key。
+- `/tmp/agent-followup-staged-verification.json`：独立暂存快照、测试及 CLI 退出码记录。
+
+上述 artifacts 路径均相对于 draco-sympas/，默认被 Git 忽略；本记录持久化范围与结论。
+下一步先解决 DeepSeek 服务端认证，再显式运行 live smoke 和 DeepSeek 全链路；
+当前完成的是可验证的 Mock 闭环与真实 API 失败路径，不宣称真实模型效果或完整 SymPas 复现。

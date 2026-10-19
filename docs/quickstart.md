@@ -45,7 +45,8 @@ Mock Infer 模式不虚构分析结果：Infer 状态为 mock，切片为 not_an
 
 ## DeepSeek（显式网络与费用）
 
-从环境中读取凭据，不会自动加载 `.env`，不打印或记录 API Key。
+从环境中读取凭据；CLI 仅在显式提供 `--env-file .env` 时加载本地配置，不打印或记录 API Key。
+已有非空环境变量优先；配置仅接受 DEEPSEEK_API_KEY 和 DEEPSEEK_MODEL，不执行 shell 表达式。
 `.env.example` 仅示意，不可把真实 Key 填入并提交。
 模型名称及接口以 [DeepSeek 官方文档](https://api-docs.deepseek.com/) 为准；2026-10-19 核验支持 `deepseek-flash`。
 
@@ -62,6 +63,35 @@ Provider 默认每次请求 30 秒超时，最多重试两次；只重试网络�
 缺 Key 为 configuration_error，401 不重试；HTTP 错误不保存 headers 或潜在敏感错误正文。
 成功响应保留 raw_envelope / raw_response / usage；无效 JSON 留下 schema_errors。
 local 模式复用 CodeGen，并提供相同证据说明；CodeGen 未经 JSON 指令微调，输出可能无法通过验证。
+
+也可以在项目根目录创建被 Git 忽略的 `.env`：
+
+```dotenv
+DEEPSEEK_API_KEY=your-api-key
+DEEPSEEK_MODEL=deepseek-flash
+```
+
+```bash
+./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --env-file .env --llm-provider deepseek
+```
+
+必须保存文件后再运行。Key 只在本机填写，不填入 `.env.example`，不要发送到聊天。
+401 表示认证失败；检查 Key 签发平台、文件是否已保存和环境覆盖，不更换模型名来绕过认证错误。
+网络成功与 JSON 成功分开记录：`llm.status` 是传输状态，`llm.parse_status` 是 JSON/schema 状态。
+
+## 稳定端到端样例
+
+跟踪在 Git 中的 `examples/agent_demo/config.c` 与 `main.c` 提供跨文件返回值样例：
+
+```bash
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --llm-provider mock
+```
+
+输出 Infer finding、统一 SliceResult、DRaCo context、evidence_refs、模型结论、验证状态和 Markdown。
+`slice_status=partial` 正常继续；none 可将参数替换为 `--llm-provider none`。
+每次新建目录，`run.json` 中保留原始记录，`review.md` 中直接展示三类证据和切片状态。
 
 ## Python 与报告接口
 
@@ -87,7 +117,7 @@ result = ReviewAgent().review(
 ## 验证
 
 ```bash
-./draco-sympas/.venv/bin/python -m pytest -q draco-sympas/tests
+./draco-sympas/.venv/bin/python -m pytest -q
 INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python -m pytest -q \
   draco-sympas/tests infer-sympas/evaluation/test_query_slice.py \
   infer-sympas/evaluation/test_summary_cache.py
@@ -95,4 +125,6 @@ RUN_DEEPSEEK_LIVE=1 ./draco-sympas/.venv/bin/python -m pytest -q \
   draco-sympas/tests/test_deepseek_live.py
 ```
 
-最后一条才允许调用真实 API，并要求环境中有 Key。默认 pytest 不会调用 DeepSeek。
+最后一条才允许调用真实 API，优先读取环境变量，缺失时读取仓库根目录已保存的 `.env`。
+默认 pytest 不会读取 `.env` 或调用 DeepSeek。根目录 pytest.ini 收集 Agent 测试与已有 Infer/SymPas 回归，排除第三方样本。
+真实 Infer 回归需要 INFER_BIN；未配置时明确 skip，不计为通过。

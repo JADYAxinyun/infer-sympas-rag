@@ -5,7 +5,7 @@
 
 ```text
 仓库 / Git Diff（上下文）
-  → 现有 Infer runner → 现有 normalize_report → 真实 SIL 切片 / 契约候选
+  → 现有 Infer runner → normalize_report → SymPasAdapter → SliceResult / 契约候选
   → 现有 review_source（unchecked_return_value）
   → 仓库 AST 关系索引 → 可解释路径检索
   → Context Builder（证据编号、去重、排序、预算、hash）
@@ -62,3 +62,20 @@ text 模式另用符号词集合重合排序，明确标为 TEXT_SIMILARITY。
 它是 token 上界估算，不是 DeepSeek tokenizer 或计费 token。
 整条证据超预算时丢弃并记录原因；diff 按 Unicode 字符截断；完整记录始终保留在 evidence.json。
 模型返回的实际 usage 单独保存；none/mock 不填充虚构 usage。
+
+## Agent 侧稳定 SliceResult
+
+`draco-sympas/sympas_adapter.py` 仅转换字段，不重算 SIL/CFG、SCC、摘要或依赖。
+读取 `analysis_status` 或兼容的 `status`，保留 partial / unsupported / failed / not_analyzed，
+未知状态为 not_analyzed；原始值保存在 raw_slice，原始新增字段继续保留。
+当前真实 Checker 返回 partial，Agent 不将其升级为完整 SymPas。
+
+## 原始产物和源文件验证
+
+验证时只允许模型引用实际送入 Prompt 的 ID，使用未投影的原始注册表作对照。
+Infer finding 回查本轮 report.json，切片通过 SymPasAdapter 与原始 Checker JSON 逐项对照；
+DRaCo 片段同时匹配 index.json 与 retrieval.json，规则匹配 rules.json。
+所有引用必须有有效文件/行号，并与索引时的源码 hash 一致；原始 slice、检索和规则各自保存。
+未提供原始产物只能部分验证；无引用时不标 verified。
+只有上下文或切片、没有规则/缺陷事实时，不接受 confirmed/likely，要求 evidence_insufficient。
+这些是来源和完整性检查，仍不能证明模型推理或候选修复的语义正确性。

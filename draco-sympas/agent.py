@@ -15,6 +15,7 @@ from providers import invoke
 from repair import propose_return_check
 from review import review_source
 from validation import parse_review, validate_evidence
+from sympas_adapter import SymPasAdapter
 
 
 def save(path, value):
@@ -22,14 +23,38 @@ def save(path, value):
 
 
 def markdown(result):
-    lines = ['# Evidence-enhanced code review', '', 'Research MVP; static evidence and heuristic rules, not a production verdict.', '',
-             f"- Run: `{result['run_id']}`", f"- Infer: `{result['infer']['status']}`", f"- LLM: `{result['llm']['provider']}/{result['llm']['status']}`",
-             f"- Local findings: {len(result['findings'])}", f"- Validation: `{result['validation']['status']}`", '',
+    lines = ['# Evidence-enhanced code review', '',
+             'Research MVP; partial/conservative slicing is not a complete SymPas reproduction.', '',
+             f"- Run: `{result['run_id']}`", f"- Infer: `{result['infer']['status']}`",
+             f"- slice_status: `{result.get('slice_status', 'not_analyzed')}`",
+             f"- LLM: `{result['llm']['provider']}/{result['llm']['status']}`",
+             f"- JSON parse: `{result['llm'].get('parse_status', 'unknown')}`",
+             f"- Local findings: {len(result['findings'])}",
+             f"- Validation: `{result['validation']['status']}`", '',
              '| File | Line | Rule | Contract source |', '|---|---:|---|---|']
     for finding in result['findings']:
         lines.append(f"| {finding['file']} | {finding['line']} | {finding['rule']} | {finding.get('contract', {}).get('source', 'unknown')} |")
-    lines += ['', '## Model response', '', '```json', json.dumps(result.get('model_review'), ensure_ascii=False, indent=2), '```',
-              '', '## Candidate validation', '', '```json', json.dumps(result['repairs'], ensure_ascii=False, indent=2), '```',
+    for title, kind in [('Infer findings', 'INFER_FACT'), ('SymPas slices', 'SYMPAS_SLICE'), ('DRaCo context', 'DRACO_CONTEXT')]:
+        lines += ['', '## ' + title, '', '| Evidence ID | Source | Detail |', '|---|---|---|']
+        entries = [item for item in result.get('evidence', []) if item['kind'] == kind]
+        if not entries:
+            lines.append('| — | — | not_analyzed / no_results |')
+        for item in entries:
+            data = item['data']
+            location = data.get('criterion', {}).get('location', {}) if kind == 'SYMPAS_SLICE' else data
+            source = str(location.get('file', 'unknown')) + ':' + str(location.get('line', '?'))
+            detail = data.get('status', data.get('kind', data.get('relation', 'context')))
+            if kind == 'DRACO_CONTEXT':
+                detail += '; ' + data.get('relevance_reason', '')
+            lines.append(f"| `{item['id']}` | {source} | {detail} |")
+    lines += ['', '## Model conclusion and evidence_refs', '', '```json',
+              json.dumps(result.get('model_review'), ensure_ascii=False, indent=2), '```',
+              '', '## Evidence validation', '', '```json',
+              json.dumps(result['validation'], ensure_ascii=False, indent=2), '```',
+              '', '## Candidate validation', '']
+    for repair in result['repairs']:
+        lines.append(f"- {repair['finding_id']}: `{repair['status']}`; Infer recheck: `{repair.get('infer_after', {}).get('status', 'not_run')}`. Candidate only; not applied or behaviorally verified.")
+    lines += ['', 'Full receipts: [run.json](run.json), [evidence.json](evidence.json), [slices.json](slices.json), [retrieval.json](retrieval.json).',
               '', '## Limits', ''] + ['- ' + item for item in result['limitations']]
     return '\n'.join(lines) + '\n'
 
@@ -85,12 +110,9 @@ class ReviewAgent:
             fact = dict(finding, finding_id=f'finding-{number:03d}', tool='infer', kind=finding['rule'],
                         procedure=raw.get('procedure'), evidence=dict(source_location=f"{finding.get('file')}:{finding.get('line')}", raw_report=raw))
             evidence.append(dict(id='infer:' + fact['finding_id'], kind='INFER_FACT', provenance='real_infer', data=fact))
-        for number, item in enumerate(infer.get('slices', []), 1):
-            data = dict(item, slice_id=f'slice-{number:03d}', status=item.get('analysis_status', 'partial'), confidence='conservative')
-            data['nodes'] = item.get('source_locations', [])
-            data['edges'] = item.get('call_chain', [])
-            data['procedures'] = sorted({item.get('procedure', '')} | {call.get('callee', '') for call in item.get('call_chain', [])})
-            data['dependencies'] = dict(data=item.get('data_dependencies', []), control=item.get('control_dependencies', []), calls=item.get('call_chain', []))
+        slice_adapter = SymPasAdapter()
+        slice_results = slice_adapter.read(infer)
+        for data in slice_results:
             evidence.append(dict(id='sympas:' + data['slice_id'], kind='SYMPAS_SLICE', provenance='real_infer', data=data))
         for path in paths:
             file = path.relative_to(repo).as_posix()
@@ -121,13 +143,20 @@ class ReviewAgent:
                     context_ids.add(identity)
                     evidence.append(dict(id='draco:' + identity, kind='DRACO_CONTEXT', provenance='repository_ast', data=item))
         context = build_context(evidence, diff, token_budget)
+        save(out / 'rules.json', findings)
+        save(out / 'slices.json', slice_results)
         save(out / 'evidence.json', evidence)
         save(out / 'context.json', context)
         save(out / 'retrieval.json', contexts)
         (out / 'prompt.json').write_text(json.dumps(context['messages'], ensure_ascii=False, indent=2))
         llm = invoke(llm_provider, context, model=model)
         model_review, errors = parse_review(llm['raw_response']) if llm['status'] == 'ok' else (None, [])
-        reference_validation = validate_evidence(model_review, context['evidence'], repo) if model_review and not errors else dict(status='not_verified', errors=[])
+        llm['parse_status'] = 'not_run' if llm['status'] != 'ok' else 'parse_failed' if errors else 'ok'
+        registry = {item['id']: item for item in evidence}
+        prompt_evidence = [registry[item['id']] for item in context['evidence']]
+        source_artifacts = dict(infer_report=infer.get('report'), index=out / 'index.json',
+                                retrieval=out / 'retrieval.json', rules=out / 'rules.json')
+        reference_validation = validate_evidence(model_review, prompt_evidence, repo, artifacts=source_artifacts) if model_review and not errors else dict(status='not_verified', errors=[])
         validation = dict(status='validation_failed' if errors or reference_validation['errors'] else
                           'partially_verified' if model_review else 'not_verified', schema_errors=errors,
                           evidence=reference_validation, rule='unchecked_return_value',
@@ -162,7 +191,9 @@ class ReviewAgent:
                                 note='Rule reduction and syntax only; no behavioral equivalence, API-contract or runtime-test proof.'))
         result = dict(run_id=run_id, repo=str(repo), output_dir=str(out), findings=findings, infer=infer,
                       slices=[entry['data'] for entry in evidence if entry['kind'] == 'SYMPAS_SLICE'],
-                      slice_status='partial' if infer.get('slices') else 'not_analyzed', index_status=index['status'],
+                      slice_status=slice_adapter.status(slice_results), index_status=index['status'],
+                      evidence_refs=model_review.get('evidence_refs', []) if model_review else [],
+                      evidence=evidence, retrieval=contexts,
                       diff_status=diff_status, review_scope='explicit targets or all indexed files; diff is context',
                       llm=llm, model_review=model_review, validation=validation, repairs=repairs,
                       context_hash=context['context_hash'], evidence_count=len(evidence), context_evidence_count=len(context['evidence']),

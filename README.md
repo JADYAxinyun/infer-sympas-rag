@@ -2,6 +2,22 @@
 
 ## 统一审查 Agent（增量集成）
 
+本轮进一步将 SymPas 输出通过独立 Agent adapter 转为 SliceResult，正常传递 `slice_status=partial`。
+证据引用对照原始 Infer、切片、检索、规则记录与源码 hash；Markdown 直接展示三类证据和验证状态。
+完整跨文件 Demo：
+
+```bash
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --llm-provider mock
+# 真实 DeepSeek：Key 填在本机 .env；此命令显式开启网络调用
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --env-file .env --llm-provider deepseek
+# 默认离线测试；真实 Infer 回归另需 INFER_BIN
+./draco-sympas/.venv/bin/python -m pytest -q
+```
+
+Agent 只读取 SymPas 结构化接口，本轮不修改其核心算法；候选修复保持部分验证。
+
 已在现有 Infer / 返回值规则 / 切片 / 本地模型实现上新增统一编排，支持
 `none`、`mock`、`local`、`deepseek`，并保存可追溯证据、模型原始响应与独立验证结果。
 研究型 MVP；不是完整 SymPas/DRaCo 复现或生产级自动修复系统。
