@@ -50,5 +50,15 @@
       "ctrl_conditional_call": {"return_dependencies": ["formal[0]", "formal[1]"], "required_control_lines": [16]},
       "ctrl_unrelated": {"return_dependencies": ["formal[1]"], "excluded_control_lines": [22]}
     }
+  },
+  {
+    "source": "tests/interprocedural/recursive_precision.c",
+    "expected": {
+      "rec_first": {"return_dependencies": ["formal[0]", "formal[2]"]},
+      "rec_left": {"return_dependencies": ["formal[0]", "formal[2]"]},
+      "rec_right": {"return_dependencies": ["formal[1]", "formal[2]"]},
+      "rec_entry": {"return_dependencies": ["formal[0]", "formal[2]"]},
+      "rec_pointer_entry": {"return_dependencies": ["formal[0]", "formal[1]"]}
+    }
   }
 ]

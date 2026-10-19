@@ -692,10 +692,10 @@ index 0000000000..ede5a4be6f
 +  -> bool
 diff --git a/infer/src/checkers/SymPasDomain.ml b/infer/src/checkers/SymPasDomain.ml
 new file mode 100644
-index 0000000000..506ccb60fa
+index 0000000000..9a9d614951
 --- /dev/null
 +++ b/infer/src/checkers/SymPasDomain.ml
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,57 @@
 +open! IStd
 +
 +type source = {procedure: string; file: string; line: int; column: int;
@@ -710,12 +710,37 @@ index 0000000000..506ccb60fa
 +[@@deriving compare, equal]
 +
 +type output = {target: dependency; dependencies: dependency list}
++[@@deriving equal]
 +
 +type summary = {dependencies: dependency list; outputs: output list;
 +                instruction_slices: (source * dependency list) list;
-+                return_aliases: dependency list; alias_evidence: (string * string list) list}
++                return_aliases: dependency list; alias_evidence: (string * string list) list;
++                fixpoint_iterations: int; fixpoint_members: string list}
++[@@deriving equal]
 +
-+let empty = {dependencies= []; outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= []}
++let empty = {dependencies= []; outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= [];
++             fixpoint_iterations= 0; fixpoint_members= []}
++
++let union compare lhs rhs = List.dedup_and_sort (lhs @ rhs) ~compare
++
++let union_pairs compare_key compare_value lhs rhs =
++  let pairs = lhs @ rhs in
++  union compare_key (List.map lhs ~f:fst) (List.map rhs ~f:fst)
++  |> List.map ~f:(fun key ->
++       let values = List.concat_map pairs ~f:(fun (other, values) ->
++           if Int.equal (compare_key key other) 0 then values else []) in
++       key, List.dedup_and_sort values ~compare:compare_value)
++
++let join lhs rhs =
++  { empty with
++    dependencies= union compare_dependency lhs.dependencies rhs.dependencies;
++    return_aliases= union compare_dependency lhs.return_aliases rhs.return_aliases;
++    outputs= union_pairs compare_dependency compare_dependency
++        (List.map lhs.outputs ~f:(fun {target; dependencies} -> target, dependencies))
++        (List.map rhs.outputs ~f:(fun {target; dependencies} -> target, dependencies))
++      |> List.map ~f:(fun (target, dependencies) -> {target; dependencies});
++    instruction_slices= union_pairs compare_source compare_dependency lhs.instruction_slices rhs.instruction_slices;
++    alias_evidence= union_pairs String.compare String.compare lhs.alias_evidence rhs.alias_evidence }
 +
 +let of_formal_indices indices =
 +  {empty with dependencies= List.dedup_and_sort indices ~compare:Int.compare |> List.map ~f:(fun i -> Formal i)}
@@ -730,10 +755,10 @@ index 0000000000..506ccb60fa
 +  Format.fprintf fmt "{%a}" (Pp.comma_seq pp_dependency) dependencies
 diff --git a/infer/src/checkers/SymPasDomain.mli b/infer/src/checkers/SymPasDomain.mli
 new file mode 100644
-index 0000000000..15c57e8ffd
+index 0000000000..ca8cc74fba
 --- /dev/null
 +++ b/infer/src/checkers/SymPasDomain.mli
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,27 @@
 +type source = {procedure: string; file: string; line: int; column: int;
 +               instruction: string; control: bool; callee: string option;
 +               target: string option; event: string} [@@deriving compare, equal]
@@ -746,22 +771,27 @@ index 0000000000..15c57e8ffd
 +[@@deriving compare, equal]
 +
 +type output = {target: dependency; dependencies: dependency list}
++[@@deriving equal]
 +
 +type summary = {dependencies: dependency list; outputs: output list;
 +                instruction_slices: (source * dependency list) list;
-+                return_aliases: dependency list; alias_evidence: (string * string list) list}
++                return_aliases: dependency list; alias_evidence: (string * string list) list;
++                fixpoint_iterations: int; fixpoint_members: string list}
++[@@deriving equal]
 +
 +val empty : summary
++
++val join : summary -> summary -> summary
 +
 +val of_formal_indices : int list -> summary
 +
 +val pp_summary : Format.formatter -> summary -> unit
 diff --git a/infer/src/checkers/sympas.ml b/infer/src/checkers/sympas.ml
 new file mode 100644
-index 0000000000..68d746614f
+index 0000000000..e83c9bc276
 --- /dev/null
 +++ b/infer/src/checkers/sympas.ml
-@@ -0,0 +1,443 @@
+@@ -0,0 +1,451 @@
 +(*
 + * Initial SymPas prototype.
 + *
@@ -978,7 +1008,8 @@ index 0000000000..68d746614f
 +  in
 +  {SymPasDomain.dependencies=
 +     List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency;
-+   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= []}
++   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= [];
++   fixpoint_iterations= 0; fixpoint_members= []}
 +
 +let precise_control_locations proc_desc {Domain.slice_locations} =
 +  let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
@@ -1135,7 +1166,14 @@ index 0000000000..68d746614f
 +                  `Assoc [("target", `String (dependency_string target));
 +                  ("dependencies", strings (input_dependencies dependencies));
 +                  ("source_locations", source_locations dependencies)])) )
-+          ; ("summary_version", `Int 5)
++          ; ("summary_version", `Int 6)
++          ; ("fixed_point", `Assoc
++                [("mode", `String (if List.is_empty summary.SymPasDomain.fixpoint_members
++                    then "acyclic" else "synchronous_scc_iteration"));
++                 ("members", strings summary.SymPasDomain.fixpoint_members);
++                 ("iterations", `Int summary.SymPasDomain.fixpoint_iterations);
++                 ("status", `String (if List.is_empty summary.SymPasDomain.fixpoint_members
++                    then "not_applicable" else "converged"))])
 +          ; ("source", `String "infer_sil_symbolic_outputs_and_backward_slice")
 +          ; ("memory_dependencies_status", `String "conservative") ] )
 +    ; ("call_chain", `List (List.filter_map sources ~f:(fun source ->
@@ -1293,10 +1331,10 @@ index 0000000000..a208ea4256
 +}
 diff --git a/infer/src/checkers/SymPasSymbolic.ml b/infer/src/checkers/SymPasSymbolic.ml
 new file mode 100644
-index 0000000000..0b568ef593
+index 0000000000..5238b3d0b0
 --- /dev/null
 +++ b/infer/src/checkers/SymPasSymbolic.ml
-@@ -0,0 +1,282 @@
+@@ -0,0 +1,353 @@
 +(* Symbolic formal/global and output-memory propagation over forward SIL CFGs.
 + * Follows the parameter substitution in SymPas equations (3), (8), (10), (11).
 + * Aggregate locations are collapsed; uncertain writes are weak updates.
@@ -1533,7 +1571,7 @@ index 0000000000..0b568ef593
 +module CFG = ProcCfg.OneInstrPerNode (ProcCfg.Normal)
 +module Analyzer = AbstractInterpreter.MakeRPO (Transfer (CFG))
 +
-+let compute analysis_data =
++let compute_once analysis_data =
 +  let proc_desc = analysis_data.InterproceduralAnalysis.proc_desc in
 +  let formals = Procdesc.get_pvar_formals proc_desc in
 +  let initial = List.foldi formals ~init:Domain.bottom ~f:(fun i state (pvar, typ) ->
@@ -1560,7 +1598,7 @@ index 0000000000..0b568ef593
 +          else outputs) state.Domain.modified outputs in
 +      {SymPasDomain.dependencies=
 +         Deps.elements (get_value (pvar_key (Procdesc.get_ret_var proc_desc)) state);
-+       outputs;
++       outputs; fixpoint_iterations= 0; fixpoint_members= [];
 +       return_aliases= get_alias (pvar_key (Procdesc.get_ret_var proc_desc)) state
 +         |> Targets.elements |> List.filter_map ~f:(fun key ->
 +             if String.is_prefix key ~prefix:"pointee:" then
@@ -1579,6 +1617,77 @@ index 0000000000..0b568ef593
 +           match source with
 +           | Some source -> (source, Deps.elements dependencies) :: slices
 +           | None -> slices) state.Domain.idt []})
++
++(* The SCC containing root is the intersection of forward and reverse reachability.
++ * Each round reads the previous round's summaries, so traversal order cannot
++ * change the result. Summary join only adds atoms from a finite SIL universe.
++ *)
++let recursive_component root =
++  let direct_calls proc_desc =
++    Procdesc.get_nodes proc_desc |> List.concat_map ~f:(fun node ->
++      Instrs.fold (Procdesc.Node.get_instrs node) ~init:[] ~f:(fun callees instr ->
++        match instr with
++        | Sil.Call (_, Exp.Const (Const.Cfun pname), _, _, _) -> pname :: callees
++        | _ -> callees)) |> List.dedup_and_sort ~compare:Procname.compare in
++  let rec visit proc_desc graph =
++    let pname = Procdesc.get_proc_name proc_desc in
++    if Procname.Map.mem pname graph then graph else
++      let callees = direct_calls proc_desc in
++      let graph = Procname.Map.add pname (proc_desc, callees) graph in
++      List.fold callees ~init:graph ~f:(fun graph callee ->
++        match Procdesc.load callee with
++        | Some desc when Procdesc.is_defined desc -> visit desc graph
++        | _ -> graph) in
++  let graph = visit root Procname.Map.empty in
++  let root_name = Procdesc.get_proc_name root in
++  let rec reverse_reachable current =
++    let next = Procname.Map.fold (fun pname (_, callees) set ->
++        if List.exists callees ~f:(fun callee -> Procname.Set.mem callee current)
++        then Procname.Set.add pname set else set) graph current in
++    if Procname.Set.equal current next then current else reverse_reachable next in
++  let names = reverse_reachable (Procname.Set.singleton root_name) in
++  let _, root_calls = Procname.Map.find root_name graph in
++  if Int.equal (Procname.Set.cardinal names) 1
++     && not (List.mem root_calls root_name ~equal:Procname.equal) then []
++  else Procname.Map.bindings graph |> List.filter_map ~f:(fun (pname, (desc, _)) ->
++      if Procname.Set.mem pname names then Some (pname, desc) else None)
++
++let compute analysis_data =
++  let root = analysis_data.InterproceduralAnalysis.proc_desc in
++  match recursive_component root with
++  | [] -> compute_once analysis_data
++  | members ->
++      (* Register dependency edges with Infer before using our local approximants.
++       * This preserves persistent-summary invalidation across SCC members. *)
++      List.iter members ~f:(fun (pname, _) ->
++        ignore (analysis_data.InterproceduralAnalysis.analyze_dependency pname)) ;
++      (* Cycle-cut edges alone are not used by Infer's reverse invalidation
++       * graph. Register all member translation units as source dependencies,
++       * preserving cycle cuts for the scheduler while invalidating the SCC. *)
++      List.iter members ~f:(fun (_, desc) ->
++        Dependencies.record_srcfile_dep (Procdesc.get_attributes desc).ProcAttributes.translation_unit) ;
++      let initial = List.fold members ~init:Procname.Map.empty ~f:(fun map (pname, _) ->
++          Procname.Map.add pname SymPasDomain.empty map) in
++      let rec iterate current iterations =
++        let failed = ref false in
++        let next = List.fold members ~init:Procname.Map.empty ~f:(fun map (pname, proc_desc) ->
++          let analyze_dependency ?specialization callee =
++            match Procname.Map.find_opt callee current with
++            | Some summary -> Ok summary
++            | None -> analysis_data.InterproceduralAnalysis.analyze_dependency ?specialization callee in
++          let data = {analysis_data with InterproceduralAnalysis.proc_desc; analyze_dependency} in
++          let previous = Procname.Map.find pname current in
++          let summary = match compute_once data with
++            | Some summary -> SymPasDomain.join previous summary
++            | None -> failed := true; previous in
++          Procname.Map.add pname summary map) in
++        if !failed then None
++        else if Procname.Map.equal SymPasDomain.equal_summary current next then
++          let summary = Procname.Map.find (Procdesc.get_proc_name root) next in
++          Some {summary with SymPasDomain.fixpoint_iterations= iterations;
++                fixpoint_members= List.map members ~f:(fun (pname, _) -> Procname.to_unique_id pname)}
++        else iterate next (iterations + 1) in
++      iterate initial 1
 diff --git a/examples/sympas/test_evaluate_smoke.py b/examples/sympas/test_evaluate_smoke.py
 new file mode 100644
 index 0000000000..aee0171dd6

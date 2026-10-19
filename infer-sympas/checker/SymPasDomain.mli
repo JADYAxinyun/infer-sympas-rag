@@ -10,12 +10,17 @@ type dependency =
 [@@deriving compare, equal]
 
 type output = {target: dependency; dependencies: dependency list}
+[@@deriving equal]
 
 type summary = {dependencies: dependency list; outputs: output list;
                 instruction_slices: (source * dependency list) list;
-                return_aliases: dependency list; alias_evidence: (string * string list) list}
+                return_aliases: dependency list; alias_evidence: (string * string list) list;
+                fixpoint_iterations: int; fixpoint_members: string list}
+[@@deriving equal]
 
 val empty : summary
+
+val join : summary -> summary -> summary
 
 val of_formal_indices : int list -> summary
 

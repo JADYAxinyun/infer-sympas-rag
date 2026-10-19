@@ -214,7 +214,8 @@ let formal_summary proc_desc {Domain.frontier; global_dependencies} =
   in
   {SymPasDomain.dependencies=
      List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency;
-   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= []}
+   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= [];
+   fixpoint_iterations= 0; fixpoint_members= []}
 
 let precise_control_locations proc_desc {Domain.slice_locations} =
   let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
@@ -371,7 +372,14 @@ let structured_evidence proc_desc _variables summary controls =
                   `Assoc [("target", `String (dependency_string target));
                   ("dependencies", strings (input_dependencies dependencies));
                   ("source_locations", source_locations dependencies)])) )
-          ; ("summary_version", `Int 5)
+          ; ("summary_version", `Int 6)
+          ; ("fixed_point", `Assoc
+                [("mode", `String (if List.is_empty summary.SymPasDomain.fixpoint_members
+                    then "acyclic" else "synchronous_scc_iteration"));
+                 ("members", strings summary.SymPasDomain.fixpoint_members);
+                 ("iterations", `Int summary.SymPasDomain.fixpoint_iterations);
+                 ("status", `String (if List.is_empty summary.SymPasDomain.fixpoint_members
+                    then "not_applicable" else "converged"))])
           ; ("source", `String "infer_sil_symbolic_outputs_and_backward_slice")
           ; ("memory_dependencies_status", `String "conservative") ] )
     ; ("call_chain", `List (List.filter_map sources ~f:(fun source ->

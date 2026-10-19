@@ -234,7 +234,7 @@ end
 module CFG = ProcCfg.OneInstrPerNode (ProcCfg.Normal)
 module Analyzer = AbstractInterpreter.MakeRPO (Transfer (CFG))
 
-let compute analysis_data =
+let compute_once analysis_data =
   let proc_desc = analysis_data.InterproceduralAnalysis.proc_desc in
   let formals = Procdesc.get_pvar_formals proc_desc in
   let initial = List.foldi formals ~init:Domain.bottom ~f:(fun i state (pvar, typ) ->
@@ -261,7 +261,7 @@ let compute analysis_data =
           else outputs) state.Domain.modified outputs in
       {SymPasDomain.dependencies=
          Deps.elements (get_value (pvar_key (Procdesc.get_ret_var proc_desc)) state);
-       outputs;
+       outputs; fixpoint_iterations= 0; fixpoint_members= [];
        return_aliases= get_alias (pvar_key (Procdesc.get_ret_var proc_desc)) state
          |> Targets.elements |> List.filter_map ~f:(fun key ->
              if String.is_prefix key ~prefix:"pointee:" then
@@ -280,3 +280,74 @@ let compute analysis_data =
            match source with
            | Some source -> (source, Deps.elements dependencies) :: slices
            | None -> slices) state.Domain.idt []})
+
+(* The SCC containing root is the intersection of forward and reverse reachability.
+ * Each round reads the previous round's summaries, so traversal order cannot
+ * change the result. Summary join only adds atoms from a finite SIL universe.
+ *)
+let recursive_component root =
+  let direct_calls proc_desc =
+    Procdesc.get_nodes proc_desc |> List.concat_map ~f:(fun node ->
+      Instrs.fold (Procdesc.Node.get_instrs node) ~init:[] ~f:(fun callees instr ->
+        match instr with
+        | Sil.Call (_, Exp.Const (Const.Cfun pname), _, _, _) -> pname :: callees
+        | _ -> callees)) |> List.dedup_and_sort ~compare:Procname.compare in
+  let rec visit proc_desc graph =
+    let pname = Procdesc.get_proc_name proc_desc in
+    if Procname.Map.mem pname graph then graph else
+      let callees = direct_calls proc_desc in
+      let graph = Procname.Map.add pname (proc_desc, callees) graph in
+      List.fold callees ~init:graph ~f:(fun graph callee ->
+        match Procdesc.load callee with
+        | Some desc when Procdesc.is_defined desc -> visit desc graph
+        | _ -> graph) in
+  let graph = visit root Procname.Map.empty in
+  let root_name = Procdesc.get_proc_name root in
+  let rec reverse_reachable current =
+    let next = Procname.Map.fold (fun pname (_, callees) set ->
+        if List.exists callees ~f:(fun callee -> Procname.Set.mem callee current)
+        then Procname.Set.add pname set else set) graph current in
+    if Procname.Set.equal current next then current else reverse_reachable next in
+  let names = reverse_reachable (Procname.Set.singleton root_name) in
+  let _, root_calls = Procname.Map.find root_name graph in
+  if Int.equal (Procname.Set.cardinal names) 1
+     && not (List.mem root_calls root_name ~equal:Procname.equal) then []
+  else Procname.Map.bindings graph |> List.filter_map ~f:(fun (pname, (desc, _)) ->
+      if Procname.Set.mem pname names then Some (pname, desc) else None)
+
+let compute analysis_data =
+  let root = analysis_data.InterproceduralAnalysis.proc_desc in
+  match recursive_component root with
+  | [] -> compute_once analysis_data
+  | members ->
+      (* Register dependency edges with Infer before using our local approximants.
+       * This preserves persistent-summary invalidation across SCC members. *)
+      List.iter members ~f:(fun (pname, _) ->
+        ignore (analysis_data.InterproceduralAnalysis.analyze_dependency pname)) ;
+      (* Cycle-cut edges alone are not used by Infer's reverse invalidation
+       * graph. Register all member translation units as source dependencies,
+       * preserving cycle cuts for the scheduler while invalidating the SCC. *)
+      List.iter members ~f:(fun (_, desc) ->
+        Dependencies.record_srcfile_dep (Procdesc.get_attributes desc).ProcAttributes.translation_unit) ;
+      let initial = List.fold members ~init:Procname.Map.empty ~f:(fun map (pname, _) ->
+          Procname.Map.add pname SymPasDomain.empty map) in
+      let rec iterate current iterations =
+        let failed = ref false in
+        let next = List.fold members ~init:Procname.Map.empty ~f:(fun map (pname, proc_desc) ->
+          let analyze_dependency ?specialization callee =
+            match Procname.Map.find_opt callee current with
+            | Some summary -> Ok summary
+            | None -> analysis_data.InterproceduralAnalysis.analyze_dependency ?specialization callee in
+          let data = {analysis_data with InterproceduralAnalysis.proc_desc; analyze_dependency} in
+          let previous = Procname.Map.find pname current in
+          let summary = match compute_once data with
+            | Some summary -> SymPasDomain.join previous summary
+            | None -> failed := true; previous in
+          Procname.Map.add pname summary map) in
+        if !failed then None
+        else if Procname.Map.equal SymPasDomain.equal_summary current next then
+          let summary = Procname.Map.find (Procdesc.get_proc_name root) next in
+          Some {summary with SymPasDomain.fixpoint_iterations= iterations;
+                fixpoint_members= List.map members ~f:(fun (pname, _) -> Procname.to_unique_id pname)}
+        else iterate next (iterations + 1) in
+      iterate initial 1
