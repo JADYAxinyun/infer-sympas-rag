@@ -1,0 +1,54 @@
+[
+  {
+    "source": "tests/interprocedural/paper_output_parameters.c",
+    "expected": {
+      "paper_entry": {
+        "return_dependencies": ["formal[0]", "formal[1]"]
+      }
+    }
+  },
+  {
+    "source": "tests/interprocedural/symbolic_outputs.c",
+    "expected": {
+      "sym_first": {"return_dependencies": ["formal[0]"]},
+      "sym_swap": {"return_dependencies": ["formal[1]"]},
+      "sym_nested": {"return_dependencies": ["formal[0]"]},
+      "sym_two_calls": {"return_dependencies": ["formal[0]"]},
+      "sym_expression": {"return_dependencies": ["formal[0]", "formal[1]"]},
+      "sym_top": {"return_dependencies": ["formal[0]"]},
+      "sym_set": {"return_dependencies": [], "outputs": {"memory(formal[0])": ["formal[0]", "formal[1]"]}},
+      "sym_pointer": {"return_dependencies": ["formal[1]"]},
+      "sym_alias": {"return_dependencies": ["formal[0]"]},
+      "sym_alias_writes": {"return_dependencies": ["formal[1]"]},
+      "sym_may_alias": {"return_dependencies": ["formal[0]", "formal[1]", "formal[2]"]},
+      "sym_write_global": {"return_dependencies": [], "outputs": {"global:sym_global": ["formal[0]"]}},
+      "sym_global_entry": {"return_dependencies": ["formal[0]"]},
+      "sym_read_global": {"return_dependencies": ["global:sym_global"]},
+      "sym_field": {"return_dependencies": ["formal[0]"]},
+      "sym_array": {"return_dependencies": ["formal[0]"]},
+      "sym_loop": {"return_dependencies": ["formal[0]", "formal[1]"]},
+      "sym_returns": {"return_dependencies": ["formal[0]", "formal[1]", "formal[2]"]},
+      "sym_recursive": {"return_dependencies": ["formal[0]", "formal[1]"]},
+      "sym_even": {"return_dependencies": ["formal[0]", "formal[1]"]},
+      "sym_odd": {"return_dependencies": ["formal[0]", "formal[1]"]},
+      "sym_unknown": {"return_dependencies": ["formal[0]"]},
+      "sym_unchecked": {"return_dependencies": ["formal[0]"]},
+      "sym_indirect": {"return_dependencies": ["formal[0]", "formal[1]"], "allow_conservative_extra": true},
+      "sym_unrelated_flag": {"return_dependencies": ["formal[1]"]},
+      "sym_pointer_return": {"return_dependencies": ["formal[0]"]},
+      "sym_struct_pointer_return": {"return_dependencies": ["formal[0]"]},
+      "sym_aggregate_merge": {"return_dependencies": ["formal[0]"], "allow_conservative_extra": true},
+      "sym_formal_alias": {"return_dependencies": ["formal[1]", "memory(formal[1])", "formal[2]"], "allow_conservative_extra": true},
+      "sym_unresolved_pointer": {"return_dependencies": ["formal[0]"], "allow_conservative_extra": true}
+    }
+  },
+  {
+    "source": "tests/control_dependency/symbolic_control.c",
+    "expected": {
+      "ctrl_early": {"return_dependencies": ["formal[0]", "formal[1]"], "required_control_lines": [2]},
+      "ctrl_switch": {"return_dependencies": ["formal[0]", "formal[1]"], "required_control_lines": [8, 9]},
+      "ctrl_conditional_call": {"return_dependencies": ["formal[0]", "formal[1]"], "required_control_lines": [16]},
+      "ctrl_unrelated": {"return_dependencies": ["formal[1]"], "excluded_control_lines": [22]}
+    }
+  }
+]

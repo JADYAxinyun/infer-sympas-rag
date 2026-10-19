@@ -1,35 +1,35 @@
 # Infer-SymPas
 
-这是一个将 SymPas 的核心思想适配到 Infer SIL 的实验性实现：以函数返回值为切片准则，反向追踪数据依赖、路径条件和控制位置，并通过 Infer 的跨过程摘要继续传播。
+基于 Infer SIL/CFG 的 SymPas 风格跨过程切片实现，参考 Zhang (JCST 2021)
+的符号输入、过程输出摘要和调用点替换。当前仍是研究原型，边界见验收文档。
 
-> 当前定位：SymPas 风格的 Infer 原型，不声称是论文实现的逐行复刻。
+- `checker/SymPasSymbolic.ml`：前向符号依赖、输出内存和返回指向关系。
+- `checker/sympas.ml`：Checker 入口、反向兼容报告和结构化证据。
+- `checker/SymPasDomain.*`：持久化过程摘要与语句来源。
+- `query_slice.py`：在 SIL 指令快照上选择六类准则。
+- `evaluation/`：预期摘要、控制位置、准则和缓存失效回归。
+- `patches/sympas-sil-symbolic.patch`：从固定 Infer 上游构建的完整补丁。
 
-## 目录
+## 构建与验证
 
-- `checker/`：OCaml checker、抽象域和控制依赖模块。
-- `configs/`：实验配置说明。
-- `tests/`：数据依赖、控制依赖和跨过程测试。
-- `docs/`：跨过程摘要设计与复现状态。
-- `patches/`：从 Infer 源码构建该原型所需的补丁记录。
-
-## 快速验证
+按 [构建与验证](docs/build-and-verify.md) 准备带本项目 Checker 的 Infer，
+在项目根目录设置 `INFER_BIN` 后运行：
 
 ```bash
-cd /Users/jadya/Documents/GitHub/desktop-tutorial
-make -C /Users/jadya/Documents/GitHub/infer-sympas-infer infer
-infer-sympas/tests/run_sympas_tests.sh
+bash infer-sympas/tests/run_sympas_tests.sh
+python3 infer-sympas/evaluation/evaluate_symbolic.py --output /tmp/sympas-results.json
+python3 -m unittest discover -s infer-sympas/evaluation -p 'test_*.py' -v
 ```
 
-## 输出内容
+`SYMPAS_SLICE` 的 qualifier 保留旧报告并附带 `sympas_json`。结构化证据包含
+准则、形参/内存/全局依赖、输出摘要、指令快照、控制与源码位置、静态调用依赖边、
+别名证据，以及 `partial` / `conservative` 状态。Python 仅组织 Checker 证据，
+不以 Python AST 代替 Infer 分析。
 
-报告中的 `SYMPAS_SLICE` 会包含：
+## 证据与边界
 
-- `frontier`：返回值依赖到的变量；
-- `slice_locations`：相关赋值、调用和分支位置；
-- `path_conditions`：切片过程中遇到的分支条件；
-- `candidate summary`：可供调用者使用的 `formal[i]` 摘要；
-- `precise control locations`：基于后支配关系或保守回退得到的控制位置。
+见 [验收证据](docs/acceptance-evidence.md)、
+[论文算法映射](docs/paper-algorithm-mapping.md) 和
+[当前复现状态](docs/reproduction-status.md)。
 
-## 当前边界
-
-完整论文复现还需要更严格的路径条件语义、复杂别名与堆对象建模、固定点收敛实验，以及论文数据集上的 Precision/Recall 和性能评估。详见 [`docs/reproduction-status.md`](docs/reproduction-status.md)。
+当前只有规则化回归测试，尚未完成基于人工参考切片的完整精度评估。

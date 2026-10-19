@@ -1,11 +1,10 @@
 (*
  * Initial SymPas prototype.
  *
- * This milestone computes an intraprocedural backward data-dependency slice
- * from a procedure return value, including the source locations of relevant
- * assignments and branch conditions. The branch handling is a conservative
- * first control-dependency approximation; interprocedural summaries are not
- * implemented yet.
+ * This milestone computes a backward data-dependency slice from a procedure
+ * return value, including relevant assignments and branch conditions. It also
+ * propagates formal-parameter/global summaries across direct calls. Pointer,
+ * alias, recursion, and richer symbolic-summary cases remain future work.
  *)
 
 open! IStd
@@ -111,30 +110,50 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
     | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
         state |> add_exp_vars condition |> Domain.add_location loc |> Domain.add_condition condition
     | Sil.Call ((ret_id, _), callee, actuals, loc, _)
-      when Domain.mem (Var.of_id ret_id) state ->
-        let state =
+      when not (Domain.is_bottom state) ->
+        let return_relevant = Domain.mem (Var.of_id ret_id) state in
+        let state, summary_found, output_relevant =
           match callee with
           | Exp.Const (Const.Cfun callee_pname) -> (
               match analyze_dependency callee_pname with
               | Ok summary ->
-                  List.fold summary.SymPasDomain.dependencies ~init:state ~f:(fun state dependency ->
-                      match dependency with
-                      | SymPasDomain.Formal index ->
-                          Option.value_map (List.nth actuals index) ~default:state
-                            ~f:(fun (actual, _) -> add_exp_vars actual state)
-                      | SymPasDomain.Global name ->
-                          {state with Domain.global_dependencies=
-                            LocationSet.add name state.Domain.global_dependencies} )
+                  let output_dependencies =
+                    List.concat_map summary.SymPasDomain.outputs
+                      ~f:(fun {SymPasDomain.target; dependencies} ->
+                        let relevant = match target with
+                          | SymPasDomain.Pointee index ->
+                              Option.value_map (List.nth actuals index) ~default:false
+                                ~f:(fun (actual, _) ->
+                                  let referenced = add_exp_vars actual Domain.bottom in
+                                  not (VarSet.is_empty
+                                    (VarSet.inter referenced.Domain.frontier state.Domain.frontier)))
+                          | SymPasDomain.Global _ -> true
+                          | SymPasDomain.Formal _ | SymPasDomain.Source _ -> false in
+                        if relevant then dependencies else [])
+                  in
+                  let dependencies =
+                    (if return_relevant then summary.SymPasDomain.dependencies else [])
+                    @ output_dependencies
+                  in
+                  ( List.fold dependencies ~init:state ~f:(fun state dependency ->
+                        match dependency with
+                        | SymPasDomain.Formal index | SymPasDomain.Pointee index ->
+                            Option.value_map (List.nth actuals index) ~default:state
+                              ~f:(fun (actual, _) -> add_exp_vars actual state)
+                        | SymPasDomain.Global name ->
+                            {state with Domain.global_dependencies=
+                              LocationSet.add name state.Domain.global_dependencies}
+                        | SymPasDomain.Source _ -> state )
+                  , true, not (List.is_empty output_dependencies) )
               | Error _ ->
-                  state )
+                  state, false, false )
           | _ ->
-              state
+              state, false, false
         in
         state
         |> Domain.remove_var (Var.of_id ret_id)
-        |> add_exp_vars callee
-        |> add_actuals actuals
-        |> Domain.add_location loc
+        |> (if summary_found || not return_relevant then Fn.id else add_actuals actuals)
+        |> (if return_relevant || output_relevant then Domain.add_location loc else Fn.id)
     | Sil.Load {id; e= rhs; _} when Domain.mem (Var.of_id id) state ->
         state |> Domain.remove_var (Var.of_id id) |> add_exp_vars rhs
     | Sil.Store {e1= Exp.Lvar lhs; e2= rhs; loc; _} when Domain.mem (Var.of_pvar lhs) state ->
@@ -194,7 +213,8 @@ let formal_summary proc_desc {Domain.frontier; global_dependencies} =
     |> List.map ~f:(fun name -> SymPasDomain.Global name)
   in
   {SymPasDomain.dependencies=
-     List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency}
+     List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency;
+   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= []}
 
 let precise_control_locations proc_desc {Domain.slice_locations} =
   let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
@@ -243,6 +263,145 @@ let precise_control_locations proc_desc {Domain.slice_locations} =
             | _ -> locations ) )
 
 
+let rec is_negative_integer_literal = function
+  | Exp.Const (Const.Cint value) ->
+      IntLit.isnegative value
+  | Exp.UnOp (Unop.Neg, Exp.Const (Const.Cint value), _) ->
+      not (IntLit.iszero value)
+  | Exp.Cast (_, exp) ->
+      is_negative_integer_literal exp
+  | _ ->
+      false
+
+
+let has_negative_integer_return proc_desc =
+  let has_direct_return = ref false in
+  let has_negative_store = ref false in
+  Procdesc.get_nodes proc_desc
+  |> List.iter ~f:(fun node ->
+         Instrs.iter (Procdesc.Node.get_instrs node) ~f:(fun instr ->
+             match instr with
+             | Sil.Store {e1= Exp.Lvar lhs; e2; _} when Pvar.is_return lhs ->
+                 has_direct_return := !has_direct_return || is_negative_integer_literal e2
+             | Sil.Store {e2; _} ->
+                 has_negative_store := !has_negative_store || is_negative_integer_literal e2
+             | _ -> () ) ) ;
+  !has_direct_return || !has_negative_store
+
+
+let structured_evidence proc_desc _variables summary controls =
+  let procedure = Procname.to_unique_id (Procdesc.get_proc_name proc_desc) in
+  let location (loc : Location.t) =
+    `Assoc
+      [ ("file", `String (SourceFile.to_string loc.file))
+      ; ("line", `Int loc.line)
+      ; ("column", `Int loc.col) ]
+  in
+  let locations selected =
+    Procdesc.get_nodes proc_desc
+    |> List.concat_map ~f:(fun node ->
+           Instrs.fold (Procdesc.Node.get_instrs node) ~init:[] ~f:(fun locations instr ->
+             let loc = Sil.location_of_instr instr in
+             if LocationSet.mem (F.asprintf "%a" Location.pp loc) selected then loc :: locations
+             else locations))
+    |> List.dedup_and_sort ~compare:Location.compare
+    |> List.map ~f:location
+  in
+  let strings values = `List (List.map values ~f:(fun value -> `String value)) in
+  let dependency_string = function
+      | SymPasDomain.Formal index -> F.asprintf "formal[%d]" index
+      | SymPasDomain.Pointee index -> F.asprintf "memory(formal[%d])" index
+      | SymPasDomain.Global name -> "global:" ^ name
+      | SymPasDomain.Source source -> F.asprintf "%s:%d:%d" source.file source.line source.column
+  in
+  let input_dependencies dependencies =
+    List.filter_map dependencies ~f:(function
+      | SymPasDomain.Source _ -> None
+      | dependency -> Some (dependency_string dependency))
+  in
+  let dependencies = input_dependencies summary.SymPasDomain.dependencies
+  in
+  let source_json (source : SymPasDomain.source) =
+    `Assoc [("procedure", `String source.procedure); ("file", `String source.file);
+            ("line", `Int source.line); ("column", `Int source.column);
+            ("instruction", `String source.instruction); ("event", `String source.event);
+            ("target", Option.value_map source.target ~default:`Null ~f:(fun value -> `String value));
+            ("callee", Option.value_map source.callee ~default:`Null ~f:(fun value -> `String value))]
+  in
+  let sources = List.filter_map summary.SymPasDomain.dependencies ~f:(function
+      | SymPasDomain.Source source -> Some source | _ -> None)
+    |> List.dedup_and_sort ~compare:SymPasDomain.compare_source
+  in
+  let source_locations dependencies =
+    `List (List.filter_map dependencies ~f:(function
+      | SymPasDomain.Source source -> Some (source_json source) | _ -> None))
+  in
+  `Assoc
+    [ ("kind", `String "SYMPAS_SLICE")
+    ; ("procedure", `String procedure)
+    ; ( "criterion"
+      , `Assoc
+          [ ("type", `String "return_value")
+          ; ("target", `String "return")
+          ; ("location", location (Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc))) ] )
+    ; ("data_dependencies", strings dependencies)
+    ; ( "control_dependencies"
+      , `List
+          (List.map (List.filter sources ~f:(fun source -> source.SymPasDomain.control)
+                     |> List.map ~f:source_json) ~f:(fun loc ->
+               `Assoc
+                 [ ("location", loc)
+                 ; ("target", `String "return")
+                 ; ("reason", `String "symbolic_predicate_dependency_conservative") ] )) )
+    ; ("backward_control_candidates", `List (locations controls))
+    ; ( "procedure_summary"
+      , `Assoc
+          [ ("procedure", `String procedure)
+          ; ("return_dependencies", strings dependencies)
+          ; ("return_aliases", strings (input_dependencies summary.SymPasDomain.return_aliases))
+          ; ("global_dependencies", strings (List.filter dependencies
+                ~f:(String.is_prefix ~prefix:"global:")))
+          ; ("memory_dependencies", strings (List.filter dependencies
+                ~f:(String.is_prefix ~prefix:"memory(")))
+          ; ("source_locations", `List (List.map sources ~f:source_json))
+          ; ("control_locations", `List (List.filter sources
+                ~f:(fun source -> source.SymPasDomain.control) |> List.map ~f:source_json))
+          ; ( "outputs", `List (List.map summary.SymPasDomain.outputs
+                ~f:(fun {SymPasDomain.target; dependencies} ->
+                  `Assoc [("target", `String (dependency_string target));
+                  ("dependencies", strings (input_dependencies dependencies));
+                  ("source_locations", source_locations dependencies)])) )
+          ; ("summary_version", `Int 5)
+          ; ("source", `String "infer_sil_symbolic_outputs_and_backward_slice")
+          ; ("memory_dependencies_status", `String "conservative") ] )
+    ; ("call_chain", `List (List.filter_map sources ~f:(fun source ->
+         Option.map source.SymPasDomain.callee ~f:(fun callee ->
+           `Assoc [("caller", `String source.SymPasDomain.procedure); ("callee", `String callee);
+                   ("location", source_json source)]))))
+    ; ("call_chain_status", `String "static_dependency_edges")
+    ; ("alias_evidence", `List (List.map summary.SymPasDomain.alias_evidence
+         ~f:(fun (pointer, targets) ->
+           let symbolic = List.exists targets ~f:(String.is_prefix ~prefix:"pointee:") in
+           `Assoc [("pointer", `String pointer); ("targets", strings targets);
+                   ("status", `String (if List.is_empty targets then "unresolved"
+                     else if symbolic || List.length targets > 1 then "possible" else "confirmed"));
+                   ("reason", `String (if symbolic then "symbolic_formal_memory"
+                     else "flow_sensitive_local_points_to"))])))
+    ; ("alias_limitations", strings ["formal_parameters_may_alias";
+         "aggregate_fields_and_elements_collapsed";
+         "unresolved_writes_weakly_update_tracked_memory";
+         "unresolved_or_escaped_return_aliases_unknown"])
+    ; ("instruction_slices", `List (List.map summary.SymPasDomain.instruction_slices
+         ~f:(fun (source, dependencies) ->
+           `Assoc [("instruction", source_json source);
+                   ("data_dependencies", strings (input_dependencies dependencies));
+                   ("source_locations", source_locations dependencies)])))
+    ; ("source_locations", `List (List.map sources ~f:source_json))
+    ; ("precision", `String "conservative")
+    ; ("analysis_status", `String "partial") ]
+  |> Yojson.Safe.to_string
+
+
 let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
   match collect_dependencies analysis_data with
   | None ->
@@ -251,12 +410,34 @@ let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
       None
   | Some variables ->
       let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
-      let summary = formal_summary proc_desc variables in
+      let backward_summary = formal_summary proc_desc variables in
+      let summary =
+        match SymPasSymbolic.compute analysis_data with
+        | Some symbolic -> symbolic
+        | None -> backward_summary
+      in
       let precise_controls = precise_control_locations proc_desc variables in
       let message =
         F.asprintf
-          "SymPas backward dependencies of the return value: %a; candidate summary: %a; precise control locations: %a"
-          Domain.pp variables SymPasDomain.pp_summary summary LocationSet.pp precise_controls
+          "SymPas backward dependencies of the return value: %a; candidate summary: %a; precise control locations: %a; sympas_json=%s"
+          Domain.pp variables SymPasDomain.pp_summary backward_summary LocationSet.pp precise_controls
+          (structured_evidence proc_desc variables summary precise_controls)
       in
       Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message ;
+      (* An integral return type alone does not prove an error-code convention.
+         Emit an explicit low-confidence candidate for the Python Agent to
+         display as evidence only; it must not auto-enable a review rule. *)
+      if Typ.is_int (Procdesc.get_ret_type proc_desc) then (
+        let callee = F.asprintf "%a" Procname.pp (Procdesc.get_proc_name proc_desc) in
+        let confidence, evidence =
+          if has_negative_integer_return proc_desc then ("medium", "negative_integer_return")
+          else ("low", "integral_return_type")
+        in
+        let contract_message =
+          F.asprintf
+            "SymPas return contract candidate: callee=%s; kind=status_candidate; confidence=%s; evidence=%s"
+            callee confidence evidence
+        in
+        Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_return_contract_candidate
+          contract_message ) ;
       Some summary

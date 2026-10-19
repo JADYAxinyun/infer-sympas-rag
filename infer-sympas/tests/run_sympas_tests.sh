@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INFER_BIN="${INFER_BIN:-/Users/jadya/Documents/GitHub/infer-sympas-infer/infer/bin/infer}"
+INFER_BIN="${INFER_BIN:-infer}"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+OUT="$(mktemp -d "${TMPDIR:-/tmp}/sympas-regression.XXXXXX")"
+echo "SymPas reports: ${OUT}"
 
 run_case() {
   local name="$1"
   local source="$2"
   shift 2
-  local out="${ROOT}/${name}/sympas-out-ci"
+  local out="${OUT}/${name}-$(basename "${source}" .c)"
 
   (cd "${ROOT}/${name}" && \
     "${INFER_BIN}" --sympas --results-dir "${out}" capture -- clang -c "${source}" >/dev/null && \
     "${INFER_BIN}" --sympas --results-dir "${out}" analyze >/dev/null && \
-    "${INFER_BIN}" --sympas --results-dir "${out}" report > report.txt)
+    "${INFER_BIN}" --sympas --results-dir "${out}" report >/dev/null)
 
   for needle in "$@"; do
-    grep -Fq "${needle}" "${ROOT}/${name}/report.txt"
+    grep -Fq "${needle}" "${out}/report.txt"
   done
   echo "PASS ${name}"
 }

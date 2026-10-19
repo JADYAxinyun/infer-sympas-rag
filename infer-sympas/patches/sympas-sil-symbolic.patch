@@ -1,0 +1,1611 @@
+diff --git a/examples/sympas/README.md b/examples/sympas/README.md
+new file mode 100644
+index 0000000000..2ce7be9f76
+--- /dev/null
++++ b/examples/sympas/README.md
+@@ -0,0 +1,109 @@
++# SymPas summary propagation smoke test
++
++This example checks the current Infer-SymPas prototype on a small C program.
++The return-value slice of `check` should propagate the summary of `helper`, retain
++`a` and the `r < 0` control condition, and not include the unrelated `b` call.
++The `bump`/`check_ptr` pair also exercises basic pointer load/store propagation.
++
++From the repository root:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-smoke \
++  -- clang -c examples/sympas/summary_propagation.c
++cat /tmp/infer-sympas-smoke/report.json
++```
++
++Expected high-level findings:
++
++- `helper`: candidate summary `{formal[0]}`;
++- `unrelated`: candidate summary `{formal[0]}`;
++- `check`: candidate summary `{formal[0]}`, with `a` as the propagated dependency
++  and the conditional branch location included.
++- `check_ptr`: candidate summary `{formal[0]}`, propagated through `&x` and `*p`.
++- `choose_first`: candidate summary `{formal[0]}`; the two call sites must not
++  mix `a` and `b` when instantiating `helper`'s summary.
++- `check_global`: retains the dependency on `shared_limit` through `add_limit`.
++
++This is a smoke test, not a completeness evaluation. More precise alias handling,
++recursive calls, richer symbolic summaries, and quantitative slicing evaluation
++remain out of scope for this prototype.
++
++## Multiple call sites
++
++The second example checks a function called with two different actual
++arguments:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-multiple-calls \
++  -- clang -c examples/sympas/multiple_calls.c
++```
++
++The prototype should report `helper` with `{formal[0]}` and `choose` with a
++caller-side frontier derived from both call sites. This is a regression smoke
++test, not yet a formal precision proof.
++
++## Global dependency
++
++The third example checks that a return value read from global state is retained
++in the summary:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-global \
++  -- clang -c examples/sympas/global_dependency.c
++```
++
++`read_limit` and `check_limit` should report a global dependency in addition to
++the return-value and control-flow facts.
++
++## Loop convergence
++
++The fourth example checks that a loop does not prevent the backward analysis
++from converging and that the returned value still depends on `x`:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-loop \
++  -- clang -c examples/sympas/loop.c
++```
++
++## Recursion fixed point
++
++The fifth example checks that recursive calls do not make the interprocedural
++analysis diverge:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-recursive \
++  -- clang -c examples/sympas/recursive.c
++```
++
++## Pointer alias
++
++The sixth example checks a local alias chain (`q` aliases `p`) and an indirect
++store/load:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-pointer-alias \
++  -- clang -c examples/sympas/pointer_alias.c
++```
++
++## Aggregate memory
++
++The seventh example exercises a struct field, an array initializer, and a
++pointer to a struct. It is a smoke test for aggregate-memory dependencies:
++
++```bash
++infer --sympas-only --results-dir /tmp/infer-sympas-aggregate \
++  -- clang -c examples/sympas/aggregate_memory.c
++```
++
++## Reproducible cost measurement
++
++To record per-case finding counts and elapsed time without claiming a full
++precision benchmark:
++
++```bash
++python3 examples/sympas/evaluate_smoke.py
++```
++
++The script also checks selected expected summaries from
++`expected_dependencies.json`. These are small regression checks, not a
++complete precision/recall benchmark.
+diff --git a/examples/sympas/aggregate_memory.c b/examples/sympas/aggregate_memory.c
+new file mode 100644
+index 0000000000..a156594fef
+--- /dev/null
++++ b/examples/sympas/aggregate_memory.c
+@@ -0,0 +1,16 @@
++/* Aggregate-memory regression: field and array writes should be retained. */
++struct Box {
++  int value;
++};
++
++int read_box(struct Box *box) {
++  box->value = box->value + 1;
++  return box->value;
++}
++
++int aggregate_entry(int input) {
++  struct Box box;
++  int values[2] = {input, 0};
++  box.value = values[0];
++  return read_box(&box);
++}
+diff --git a/examples/sympas/evaluate_smoke.py b/examples/sympas/evaluate_smoke.py
+new file mode 100644
+index 0000000000..419a0be9f0
+--- /dev/null
++++ b/examples/sympas/evaluate_smoke.py
+@@ -0,0 +1,95 @@
++#!/usr/bin/env python3
++"""Measure the small SymPas regression corpus.
++
++This is not a precision benchmark; it records reproducible smoke-test cost and
++the number of emitted slice findings for future comparisons.
++"""
++from __future__ import annotations
++
++import json
++import subprocess
++import tempfile
++import time
++from pathlib import Path
++import re
++
++
++ROOT = Path(__file__).resolve().parents[2]
++MANIFEST = Path(__file__).with_name("expected_dependencies.json")
++CASES = [
++    "summary_propagation.c",
++    "multiple_calls.c",
++    "global_dependency.c",
++    "loop.c",
++    "recursive.c",
++    "pointer_alias.c",
++    "aggregate_memory.c",
++]
++
++
++def extract(qualifier: str, label: str, next_label: str) -> str:
++    suffix = rf"\s*;?\s*{re.escape(next_label)}" if next_label else r".*$"
++    match = re.search(rf"{re.escape(label)}\s*=?\s*\{{(.*?)\}}{suffix}", qualifier, re.S)
++    if not match:
++        return ""
++    value = " ".join(match.group(1).split()).strip()
++    return value.strip("}").strip()
++
++
++def structure_finding(finding: dict) -> dict:
++    qualifier = finding.get("qualifier", "")
++    return {
++        "procedure": finding.get("procedure"),
++        "file": finding.get("file"),
++        "line": finding.get("line"),
++        "frontier": extract(qualifier, "frontier=", "slice_locations"),
++        "slice_locations": extract(qualifier, "slice_locations=", "path_conditions"),
++        "globals": extract(qualifier, "global_dependencies=", "candidate summary"),
++        "summary": extract(qualifier, "candidate summary:", "precise control locations"),
++        "control_locations": extract(qualifier, "precise control locations:", ""),
++    }
++
++
++def main() -> None:
++    infer = ROOT / "infer" / "bin" / "infer"
++    if not infer.exists():
++        raise SystemExit("Infer binary not found; run make -j2 first")
++
++    expected = json.loads(MANIFEST.read_text())
++    rows = []
++    checks = []
++    with tempfile.TemporaryDirectory(prefix="infer-sympas-eval-") as tmp:
++        for filename in CASES:
++            result_dir = Path(tmp) / Path(filename).stem
++            source = Path(__file__).parent / filename
++            started = time.perf_counter()
++            subprocess.run(
++                [str(infer), "--sympas-only", "--results-dir", str(result_dir), "--", "clang", "-c", str(source)],
++                check=True,
++                stdout=subprocess.DEVNULL,
++                stderr=subprocess.STDOUT,
++            )
++            elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
++            report = json.loads((result_dir / "report.json").read_text())
++            slices = [finding for finding in report if finding.get("bug_type") == "SYMPAS_SLICE"]
++            structured = [structure_finding(finding) for finding in slices]
++            for procedure, expected_summary in expected.get(filename, {}).items():
++                actual = next((item["summary"].replace(" ", "") for item in structured if item["procedure"] == procedure), "")
++                expected_normalized = expected_summary.replace(" ", "")
++                checks.append({"case": filename, "procedure": procedure, "expected": expected_normalized, "actual": actual, "ok": actual == expected_normalized})
++            rows.append({
++                "case": filename,
++                "findings": len(slices),
++                "other_findings": len(report) - len(slices),
++                "elapsed_ms": elapsed_ms,
++                "structured_findings": structured,
++            })
++
++    result = {"cases": rows, "dependency_checks": checks, "total_findings": sum(row["findings"] for row in rows)}
++    print(json.dumps(result, indent=2))
++    if not all(check["ok"] for check in checks):
++        raise SystemExit("dependency manifest check failed")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/examples/sympas/expected_dependencies.json b/examples/sympas/expected_dependencies.json
+new file mode 100644
+index 0000000000..a017555d3b
+--- /dev/null
++++ b/examples/sympas/expected_dependencies.json
+@@ -0,0 +1,20 @@
++{
++  "summary_propagation.c": {
++    "helper": "formal[0]",
++    "check": "formal[0]",
++    "check_ptr": "formal[0]"
++  },
++  "multiple_calls.c": {
++    "choose": "formal[0],formal[1]"
++  },
++  "global_dependency.c": {
++    "read_limit": "global_limit",
++    "check_limit": "global_limit"
++  },
++  "recursive.c": {
++    "recursive_entry": "formal[0]"
++  },
++  "pointer_alias.c": {
++    "alias_entry": "formal[0]"
++  }
++}
+diff --git a/examples/sympas/global_dependency.c b/examples/sympas/global_dependency.c
+new file mode 100644
+index 0000000000..39d668fd16
+--- /dev/null
++++ b/examples/sympas/global_dependency.c
+@@ -0,0 +1,14 @@
++/* A return value depending on global state should expose that global. */
++int global_limit;
++
++int read_limit(void) {
++  return global_limit;
++}
++
++int check_limit(void) {
++  int limit = read_limit();
++  if (limit < 0) {
++    return limit;
++  }
++  return 0;
++}
+diff --git a/examples/sympas/loop.c b/examples/sympas/loop.c
+new file mode 100644
+index 0000000000..c119af20fb
+--- /dev/null
++++ b/examples/sympas/loop.c
+@@ -0,0 +1,10 @@
++/* Loop regression: the backward analysis must converge and retain x. */
++int accumulate(int x) {
++  int i = 0;
++  int total = x;
++  while (i < 3) {
++    total = total + 1;
++    i = i + 1;
++  }
++  return total;
++}
+diff --git a/examples/sympas/multiple_calls.c b/examples/sympas/multiple_calls.c
+new file mode 100644
+index 0000000000..bb2fa32a0d
+--- /dev/null
++++ b/examples/sympas/multiple_calls.c
+@@ -0,0 +1,13 @@
++/* Two call sites must preserve their caller-side dependencies. */
++int helper(int x) {
++  return x + 1;
++}
++
++int choose(int left, int right) {
++  int first = helper(left);
++  int second = helper(right);
++  if (first < second) {
++    return first;
++  }
++  return second;
++}
+diff --git a/examples/sympas/pointer_alias.c b/examples/sympas/pointer_alias.c
+new file mode 100644
+index 0000000000..e7aa870610
+--- /dev/null
++++ b/examples/sympas/pointer_alias.c
+@@ -0,0 +1,11 @@
++/* Pointer alias regression: q aliases p and the write affects the return. */
++int write_through(int *p) {
++  int *q = p;
++  *q = 7;
++  return *p;
++}
++
++int alias_entry(int input) {
++  int value = input;
++  return write_through(&value);
++}
+diff --git a/examples/sympas/recursive.c b/examples/sympas/recursive.c
+new file mode 100644
+index 0000000000..a92965c4a3
+--- /dev/null
++++ b/examples/sympas/recursive.c
+@@ -0,0 +1,11 @@
++/* Recursion regression: summaries should reach a fixed point. */
++int descend(int value, int steps) {
++  if (steps <= 0) {
++    return value;
++  }
++  return descend(value + 1, steps - 1);
++}
++
++int recursive_entry(int input) {
++  return descend(input, 2);
++}
+diff --git a/examples/sympas/run_smoke_tests.sh b/examples/sympas/run_smoke_tests.sh
+new file mode 100755
+index 0000000000..b1828e0231
+--- /dev/null
++++ b/examples/sympas/run_smoke_tests.sh
+@@ -0,0 +1,40 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++# Run the small regression corpus against the locally built Infer binary.
++ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
++INFER="$ROOT/infer/bin/infer"
++OUT="$(mktemp -d "${TMPDIR:-/tmp}/infer-sympas-smoke.XXXXXX")"
++trap 'rm -rf "$OUT"' EXIT
++
++if [[ ! -x "$INFER" ]]; then
++  echo "Infer binary not found: $INFER" >&2
++  echo "Build it first with: make -j2" >&2
++  exit 1
++fi
++
++run_case() {
++  local source="$1"
++  local result_dir="$OUT/$(basename "$source" .c)"
++  "$INFER" --sympas-only --results-dir "$result_dir" -- clang -c "$ROOT/$source" >/dev/null
++  test -s "$result_dir/report.json"
++  grep -q 'SYMPAS_SLICE' "$result_dir/report.json"
++  echo "PASS $source"
++}
++
++run_case examples/sympas/summary_propagation.c
++grep -q 'formal\[0\]' "$OUT/summary_propagation/report.json"
++run_case examples/sympas/multiple_calls.c
++grep -q 'formal\[1\]' "$OUT/multiple_calls/report.json"
++run_case examples/sympas/global_dependency.c
++grep -q 'global_limit' "$OUT/global_dependency/report.json"
++run_case examples/sympas/loop.c
++grep -q 'frontier={ x }' "$OUT/loop/report.json"
++run_case examples/sympas/recursive.c
++grep -q 'formal\[0\]' "$OUT/recursive/report.json"
++run_case examples/sympas/pointer_alias.c
++grep -q 'formal\[0\]' "$OUT/pointer_alias/report.json"
++run_case examples/sympas/aggregate_memory.c
++grep -q 'formal\[0\]' "$OUT/aggregate_memory/report.json"
++
++echo "All SymPas smoke tests passed."
+diff --git a/examples/sympas/summary_propagation.c b/examples/sympas/summary_propagation.c
+new file mode 100644
+index 0000000000..a208ea4256
+--- /dev/null
++++ b/examples/sympas/summary_propagation.c
+@@ -0,0 +1,43 @@
++/* Minimal cross-procedure SymPas slicing example. */
++int helper(int x) {
++  int y = x - 10;
++  return y;
++}
++
++int unrelated(int z) {
++  return z * 2;
++}
++
++int check(int a, int b) {
++  int r = helper(a);
++  int unused = unrelated(b);
++  if (r < 0) {
++    return r;
++  }
++  return 0;
++}
++
++int bump(int *p) {
++  *p = *p + 1;
++  return *p;
++}
++
++int check_ptr(int x) {
++  return bump(&x);
++}
++
++int choose_first(int a, int b) {
++  int selected = helper(a);
++  int ignored = helper(b);
++  return selected;
++}
++
++int shared_limit = 10;
++
++int add_limit(int x) {
++  return x + shared_limit;
++}
++
++int check_global(int x) {
++  return add_limit(x);
++}
+diff --git a/infer/src/backend/Payloads.ml b/infer/src/backend/Payloads.ml
+index 47a0b1e582..7d72fe881a 100644
+--- a/infer/src/backend/Payloads.ml
++++ b/infer/src/backend/Payloads.ml
+@@ -18,6 +18,7 @@ type t =
+   ; disjunctive_demo: DisjunctiveDemo.domain SafeLazy.t option
+   ; static_constructor_stall_checker: StaticConstructorStallChecker.Summary.t SafeLazy.t option
+   ; lab_resource_leaks: ResourceLeakDomain.summary SafeLazy.t option
++  ; sympas: SymPasDomain.summary SafeLazy.t option
+   ; litho_required_props: LithoDomain.summary SafeLazy.t option
+   ; pulse: PulseSummary.t SafeLazy.t option
+   ; purity: PurityDomain.summary SafeLazy.t option
+@@ -70,6 +71,7 @@ let all_fields =
+     ~purity:(fun f -> mk f Purity PurityDomain.pp_summary)
+     ~racerd:(fun f -> mk f RacerD RacerDDomain.pp_summary)
+     ~lab_resource_leaks:(fun f -> mk f LabResourceLeaks ResourceLeakDomain.pp)
++    ~sympas:(fun f -> mk f SymPas SymPasDomain.pp_summary)
+     ~scope_leakage:(fun f -> mk f ScopeLeakage ScopeLeakage.Summary.pp)
+     ~siof:(fun f -> mk f SIOF SiofDomain.Summary.pp)
+     ~lineage:(fun f -> mk f Lineage Lineage.Summary.pp)
+@@ -108,6 +110,7 @@ let empty =
+   ; disjunctive_demo= None
+   ; static_constructor_stall_checker= None
+   ; lab_resource_leaks= None
++  ; sympas= None
+   ; litho_required_props= None
+   ; pulse= None
+   ; purity= None
+@@ -129,6 +132,7 @@ let freeze t =
+        ; disjunctive_demo
+        ; static_constructor_stall_checker
+        ; lab_resource_leaks
++       ; sympas
+        ; litho_required_props
+        ; pulse
+        ; purity
+@@ -150,6 +154,7 @@ let freeze t =
+   freeze disjunctive_demo ;
+   freeze static_constructor_stall_checker ;
+   freeze lab_resource_leaks ;
++  freeze sympas ;
+   freeze litho_required_props ;
+   freeze pulse ;
+   freeze purity ;
+@@ -278,6 +283,7 @@ module SQLite = struct
+     ; disjunctive_demo= load ~proc_uid DisjunctiveDemo
+     ; static_constructor_stall_checker= load ~proc_uid StaticConstructorStallChecker
+     ; lab_resource_leaks= load ~proc_uid LabResourceLeaks
++    ; sympas= load ~proc_uid SymPas
+     ; litho_required_props= load ~proc_uid LithoRequiredProps
+     ; pulse= load ~proc_uid Pulse
+     ; purity= load ~proc_uid Purity
+diff --git a/infer/src/backend/Payloads.mli b/infer/src/backend/Payloads.mli
+index 11a44e0363..5e8bc75c8b 100644
+--- a/infer/src/backend/Payloads.mli
++++ b/infer/src/backend/Payloads.mli
+@@ -27,6 +27,7 @@ include sig
+     ; disjunctive_demo: DisjunctiveDemo.domain SafeLazy.t option
+     ; static_constructor_stall_checker: StaticConstructorStallChecker.Summary.t SafeLazy.t option
+     ; lab_resource_leaks: ResourceLeakDomain.summary SafeLazy.t option
++    ; sympas: SymPasDomain.summary SafeLazy.t option
+     ; litho_required_props: LithoDomain.summary SafeLazy.t option
+     ; pulse: PulseSummary.t SafeLazy.t option
+     ; purity: PurityDomain.summary SafeLazy.t option
+diff --git a/infer/src/backend/registerCheckers.ml b/infer/src/backend/registerCheckers.ml
+index d4277032d4..48da5c585c 100644
+--- a/infer/src/backend/registerCheckers.ml
++++ b/infer/src/backend/registerCheckers.ml
+@@ -84,6 +84,7 @@ let all_checkers =
+   (* The order of the list is important for those checkers that depend on other checkers having run
+      before them. *)
+   [ {checker= SelfInBlock; callbacks= [(intraprocedural SelfInBlock.checker, Clang)]}
++  ; {checker= SymPas; callbacks= [(interprocedural Payloads.Fields.sympas Sympas.checker, Clang)]}
+   ; { checker= ParameterNotNullChecked
+     ; callbacks= [(intraprocedural ParameterNotNullChecked.checker, Clang)] }
+   ; { checker= StaticConstructorStallChecker
+diff --git a/infer/src/base/Checker.ml b/infer/src/base/Checker.ml
+index 52b9f1c86d..ad7e1f5090 100644
+--- a/infer/src/base/Checker.ml
++++ b/infer/src/base/Checker.ml
+@@ -36,6 +36,7 @@ type t =
+   | SIOF
+   | ScopeLeakage
+   | SelfInBlock
++  | SymPas
+   | Starvation
+   | SwiftObjCNullability
+   | Topl
+@@ -326,6 +327,14 @@ let config_unsafe checker =
+       ; cli_flags= Some {deprecated= []; show_in_help= false}
+       ; enabled_by_default= false
+       ; activates= [] }
++  | SymPas ->
++      { id= "sympas"
++      ; kind= UserFacing {title= "SymPas"; markdown_body= "Experimental symbolic program slicing."}
++      ; support= mk_support_func ~clang:ExperimentalSupport ()
++      ; short_documentation= "Experimental symbolic program slicing prototype."
++      ; cli_flags= Some {deprecated= []; show_in_help= true}
++      ; enabled_by_default= false
++      ; activates= [] }
+   | ScopeLeakage ->
+       { id= "scope-leakage"
+       ; kind= UserFacing {title= "Scope Leakage"; markdown_body= ""}
+diff --git a/infer/src/base/Checker.mli b/infer/src/base/Checker.mli
+index 8c74418e00..3cd77ce008 100644
+--- a/infer/src/base/Checker.mli
++++ b/infer/src/base/Checker.mli
+@@ -35,6 +35,7 @@ type t =
+   | SIOF
+   | ScopeLeakage
+   | SelfInBlock
++  | SymPas
+   | Starvation
+   | SwiftObjCNullability
+   | Topl
+diff --git a/infer/src/base/IssueType.ml b/infer/src/base/IssueType.ml
+index 1d2e975f13..b0afa7e33b 100644
+--- a/infer/src/base/IssueType.ml
++++ b/infer/src/base/IssueType.ml
+@@ -659,6 +659,17 @@ let lab_resource_leak =
+     ~user_documentation:"Toy issue."
+
+
++let sympas_slice =
++  register ~category:NoCategory ~id:"SYMPAS_SLICE" Info SymPas
++    ~user_documentation:"Backward return-value slice reported by the experimental SymPas prototype."
++
++
++let sympas_return_contract_candidate =
++  register ~category:NoCategory ~id:"SYMPAS_RETURN_CONTRACT_CANDIDATE" Info SymPas
++    ~user_documentation:
++      "Low-confidence integral return-type candidate reported by the experimental SymPas prototype. This is not an error-code proof."
++
++
+ let lock_consistency_violation =
+   register Warning ~id:"LOCK_CONSISTENCY_VIOLATION" ~category:Concurrency RacerD
+     ~user_documentation:[%blob "./documentation/issues/LOCK_CONSISTENCY_VIOLATION.md"]
+diff --git a/infer/src/base/IssueType.mli b/infer/src/base/IssueType.mli
+index 5bddd4f51a..76aed38d56 100644
+--- a/infer/src/base/IssueType.mli
++++ b/infer/src/base/IssueType.mli
+@@ -209,6 +209,10 @@ val ipc_on_ui_thread : t
+
+ val lab_resource_leak : t
+
++val sympas_slice : t
++
++val sympas_return_contract_candidate : t
++
+ val lockless_violation : t
+
+ val lock_consistency_violation : t
+diff --git a/infer/src/base/PayloadId.ml b/infer/src/base/PayloadId.ml
+index d0c3bd90de..b5e94a1886 100644
+--- a/infer/src/base/PayloadId.ml
++++ b/infer/src/base/PayloadId.ml
+@@ -16,6 +16,7 @@ type t =
+   | DisjunctiveDemo
+   | StaticConstructorStallChecker
+   | LabResourceLeaks
++  | SymPas
+   | LithoRequiredProps
+   | Pulse
+   | Purity
+@@ -47,6 +48,8 @@ let to_checker payload_id : Checker.t =
+       StaticConstructorStallChecker
+   | LabResourceLeaks ->
+       ResourceLeakLabExercise
++  | SymPas ->
++      SymPas
+   | LithoRequiredProps ->
+       LithoRequiredProps
+   | Pulse ->
+diff --git a/infer/src/base/PayloadId.mli b/infer/src/base/PayloadId.mli
+index eea8e08634..3a01a1bab3 100644
+--- a/infer/src/base/PayloadId.mli
++++ b/infer/src/base/PayloadId.mli
+@@ -17,6 +17,7 @@ type t =
+   | DisjunctiveDemo
+   | StaticConstructorStallChecker
+   | LabResourceLeaks
++  | SymPas
+   | LithoRequiredProps
+   | Pulse
+   | Purity
+diff --git a/infer/src/checkers/SymPasControlDependence.ml b/infer/src/checkers/SymPasControlDependence.ml
+new file mode 100644
+index 0000000000..bccbec8b5f
+--- /dev/null
++++ b/infer/src/checkers/SymPasControlDependence.ml
+@@ -0,0 +1,40 @@
++open! IStd
++
++module Node = Procdesc.Node
++module NodeSet = Procdesc.NodeSet
++module NodeMap = Procdesc.NodeMap
++
++let compute_postdominators proc_desc =
++  let nodes = Procdesc.get_nodes proc_desc in
++  let all = NodeSet.of_list nodes in
++  let exit = Procdesc.get_exit_node proc_desc in
++  let initial node = if phys_equal node exit then NodeSet.singleton node else all in
++  let rec iterate current =
++    let next =
++      List.fold nodes ~init:NodeMap.empty ~f:(fun result node ->
++          if phys_equal node exit then NodeMap.add node (NodeSet.singleton node) result
++          else
++            let successors = Node.get_succs node in
++            let intersection =
++              match successors with
++              | [] -> NodeSet.empty
++              | successor :: rest ->
++                  List.fold rest ~init:(NodeMap.find successor current)
++                    ~f:(fun acc successor -> NodeSet.inter acc (NodeMap.find successor current))
++            in
++            NodeMap.add node (NodeSet.add node intersection) result )
++    in
++    if List.for_all nodes ~f:(fun node -> NodeSet.equal (NodeMap.find node current) (NodeMap.find node next))
++    then next
++    else iterate next
++  in
++  iterate (List.fold nodes ~init:NodeMap.empty ~f:(fun result node -> NodeMap.add node (initial node) result))
++
++let controls postdominators ~branch ~target =
++  let branch_postdom = NodeMap.find branch postdominators in
++  let target_is_postdominated_by_branch = NodeSet.mem target branch_postdom in
++  let target_is_postdominated_by_successor =
++    Node.get_succs branch
++    |> List.exists ~f:(fun successor -> NodeSet.mem target (NodeMap.find successor postdominators))
++  in
++  (not target_is_postdominated_by_branch) && target_is_postdominated_by_successor
+diff --git a/infer/src/checkers/SymPasControlDependence.mli b/infer/src/checkers/SymPasControlDependence.mli
+new file mode 100644
+index 0000000000..ede5a4be6f
+--- /dev/null
++++ b/infer/src/checkers/SymPasControlDependence.mli
+@@ -0,0 +1,7 @@
++val compute_postdominators : Procdesc.t -> Procdesc.NodeSet.t Procdesc.NodeMap.t
++
++val controls :
++     Procdesc.NodeSet.t Procdesc.NodeMap.t
++  -> branch:Procdesc.Node.t
++  -> target:Procdesc.Node.t
++  -> bool
+diff --git a/infer/src/checkers/SymPasDomain.ml b/infer/src/checkers/SymPasDomain.ml
+new file mode 100644
+index 0000000000..506ccb60fa
+--- /dev/null
++++ b/infer/src/checkers/SymPasDomain.ml
+@@ -0,0 +1,32 @@
++open! IStd
++
++type source = {procedure: string; file: string; line: int; column: int;
++               instruction: string; control: bool; callee: string option;
++               target: string option; event: string} [@@deriving compare, equal]
++
++type dependency =
++  | Formal of int
++  | Global of string
++  | Pointee of int
++  | Source of source
++[@@deriving compare, equal]
++
++type output = {target: dependency; dependencies: dependency list}
++
++type summary = {dependencies: dependency list; outputs: output list;
++                instruction_slices: (source * dependency list) list;
++                return_aliases: dependency list; alias_evidence: (string * string list) list}
++
++let empty = {dependencies= []; outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= []}
++
++let of_formal_indices indices =
++  {empty with dependencies= List.dedup_and_sort indices ~compare:Int.compare |> List.map ~f:(fun i -> Formal i)}
++
++let pp_dependency fmt = function
++  | Formal index -> Format.fprintf fmt "formal[%d]" index
++  | Global name -> Format.pp_print_string fmt name
++  | Pointee index -> Format.fprintf fmt "memory(formal[%d])" index
++  | Source source -> Format.fprintf fmt "%s:%d:%d" source.file source.line source.column
++
++let pp_summary fmt {dependencies} =
++  Format.fprintf fmt "{%a}" (Pp.comma_seq pp_dependency) dependencies
+diff --git a/infer/src/checkers/SymPasDomain.mli b/infer/src/checkers/SymPasDomain.mli
+new file mode 100644
+index 0000000000..15c57e8ffd
+--- /dev/null
++++ b/infer/src/checkers/SymPasDomain.mli
+@@ -0,0 +1,22 @@
++type source = {procedure: string; file: string; line: int; column: int;
++               instruction: string; control: bool; callee: string option;
++               target: string option; event: string} [@@deriving compare, equal]
++
++type dependency =
++  | Formal of int
++  | Global of string
++  | Pointee of int
++  | Source of source
++[@@deriving compare, equal]
++
++type output = {target: dependency; dependencies: dependency list}
++
++type summary = {dependencies: dependency list; outputs: output list;
++                instruction_slices: (source * dependency list) list;
++                return_aliases: dependency list; alias_evidence: (string * string list) list}
++
++val empty : summary
++
++val of_formal_indices : int list -> summary
++
++val pp_summary : Format.formatter -> summary -> unit
+diff --git a/infer/src/checkers/sympas.ml b/infer/src/checkers/sympas.ml
+new file mode 100644
+index 0000000000..68d746614f
+--- /dev/null
++++ b/infer/src/checkers/sympas.ml
+@@ -0,0 +1,443 @@
++(*
++ * Initial SymPas prototype.
++ *
++ * This milestone computes a backward data-dependency slice from a procedure
++ * return value, including relevant assignments and branch conditions. It also
++ * propagates formal-parameter/global summaries across direct calls. Pointer,
++ * alias, recursion, and richer symbolic-summary cases remain future work.
++ *)
++
++open! IStd
++module F = Format
++
++module VarSet = AbstractDomain.FiniteSet (Var)
++
++module LocationString = struct
++  type t = string [@@deriving compare]
++
++  let pp = F.pp_print_string
++end
++
++module LocationSet = AbstractDomain.FiniteSet (LocationString)
++
++module Domain = struct
++  type t = {frontier: VarSet.t; slice_locations: LocationSet.t; path_conditions: LocationSet.t; global_dependencies: LocationSet.t}
++
++  let leq ~lhs ~rhs =
++    VarSet.leq ~lhs:lhs.frontier ~rhs:rhs.frontier
++    && LocationSet.leq ~lhs:lhs.slice_locations ~rhs:rhs.slice_locations
++    && LocationSet.leq ~lhs:lhs.path_conditions ~rhs:rhs.path_conditions
++    && LocationSet.leq ~lhs:lhs.global_dependencies ~rhs:rhs.global_dependencies
++
++
++  let join lhs rhs =
++    { frontier= VarSet.join lhs.frontier rhs.frontier
++    ; slice_locations= LocationSet.join lhs.slice_locations rhs.slice_locations
++    ; path_conditions= LocationSet.join lhs.path_conditions rhs.path_conditions
++    ; global_dependencies= LocationSet.join lhs.global_dependencies rhs.global_dependencies }
++
++
++  let widen ~prev ~next ~num_iters =
++    { frontier= VarSet.widen ~prev:prev.frontier ~next:next.frontier ~num_iters
++    ; slice_locations=
++        LocationSet.widen ~prev:prev.slice_locations ~next:next.slice_locations ~num_iters
++    ; path_conditions=
++        LocationSet.widen ~prev:prev.path_conditions ~next:next.path_conditions ~num_iters
++    ; global_dependencies=
++        LocationSet.widen ~prev:prev.global_dependencies ~next:next.global_dependencies ~num_iters }
++
++
++  let pp fmt {frontier; slice_locations; path_conditions; global_dependencies} =
++    F.fprintf fmt "{frontier=%a; slice_locations=%a; path_conditions=%a; global_dependencies=%a}" VarSet.pp frontier LocationSet.pp
++      slice_locations LocationSet.pp path_conditions LocationSet.pp global_dependencies
++
++
++  let bottom =
++    {frontier= VarSet.bottom; slice_locations= LocationSet.bottom; path_conditions= LocationSet.bottom; global_dependencies= LocationSet.bottom}
++
++  let is_bottom {frontier; slice_locations; path_conditions; global_dependencies} =
++    VarSet.is_bottom frontier && LocationSet.is_bottom slice_locations
++    && LocationSet.is_bottom path_conditions
++    && LocationSet.is_bottom global_dependencies
++
++
++  let initial = bottom
++
++  let singleton var = {bottom with frontier= VarSet.singleton var}
++
++  let mem var {frontier} = VarSet.mem var frontier
++
++  let add_var var state = {state with frontier= VarSet.add var state.frontier}
++
++  let remove_var var state = {state with frontier= VarSet.remove var state.frontier}
++
++  let add_location loc state =
++    let loc_string = F.asprintf "%a" Location.pp loc in
++    {state with slice_locations= LocationSet.add loc_string state.slice_locations}
++
++  let add_condition condition state =
++    let condition_string = F.asprintf "%a" Exp.pp condition in
++    {state with path_conditions= LocationSet.add condition_string state.path_conditions}
++
++end
++
++(** Add all variables read by [exp] to the current slice frontier. *)
++let add_exp_vars exp state =
++  let state =
++    Exp.free_vars exp
++    |> Sequence.fold ~init:state ~f:(fun state id -> Domain.add_var (Var.of_id id) state)
++  in
++  Exp.program_vars exp
++    |> Sequence.fold ~init:state ~f:(fun state pvar -> Domain.add_var (Var.of_pvar pvar) state)
++
++let add_actuals actuals state =
++  List.fold actuals ~init:state ~f:(fun state (actual, _) -> add_exp_vars actual state)
++
++(** Intraprocedural backward traversal over SIL instructions. *)
++module TransferFunctions (CFG : ProcCfg.S) = struct
++  module CFG = CFG
++  module Domain = Domain
++
++  type analysis_data = SymPasDomain.summary InterproceduralAnalysis.t
++
++  (** A backward dependency transfer.
++
++      If the slicing frontier contains the result of an assignment, replace it
++      with the variables read by its right-hand side. *)
++  let exec_instr state {InterproceduralAnalysis.analyze_dependency; _} _ _
++      (instr : Sil.instr) =
++    match instr with
++    | Sil.Prune (condition, loc, _, _) when not (Domain.is_bottom state) ->
++        state |> add_exp_vars condition |> Domain.add_location loc |> Domain.add_condition condition
++    | Sil.Call ((ret_id, _), callee, actuals, loc, _)
++      when not (Domain.is_bottom state) ->
++        let return_relevant = Domain.mem (Var.of_id ret_id) state in
++        let state, summary_found, output_relevant =
++          match callee with
++          | Exp.Const (Const.Cfun callee_pname) -> (
++              match analyze_dependency callee_pname with
++              | Ok summary ->
++                  let output_dependencies =
++                    List.concat_map summary.SymPasDomain.outputs
++                      ~f:(fun {SymPasDomain.target; dependencies} ->
++                        let relevant = match target with
++                          | SymPasDomain.Pointee index ->
++                              Option.value_map (List.nth actuals index) ~default:false
++                                ~f:(fun (actual, _) ->
++                                  let referenced = add_exp_vars actual Domain.bottom in
++                                  not (VarSet.is_empty
++                                    (VarSet.inter referenced.Domain.frontier state.Domain.frontier)))
++                          | SymPasDomain.Global _ -> true
++                          | SymPasDomain.Formal _ | SymPasDomain.Source _ -> false in
++                        if relevant then dependencies else [])
++                  in
++                  let dependencies =
++                    (if return_relevant then summary.SymPasDomain.dependencies else [])
++                    @ output_dependencies
++                  in
++                  ( List.fold dependencies ~init:state ~f:(fun state dependency ->
++                        match dependency with
++                        | SymPasDomain.Formal index | SymPasDomain.Pointee index ->
++                            Option.value_map (List.nth actuals index) ~default:state
++                              ~f:(fun (actual, _) -> add_exp_vars actual state)
++                        | SymPasDomain.Global name ->
++                            {state with Domain.global_dependencies=
++                              LocationSet.add name state.Domain.global_dependencies}
++                        | SymPasDomain.Source _ -> state )
++                  , true, not (List.is_empty output_dependencies) )
++              | Error _ ->
++                  state, false, false )
++          | _ ->
++              state, false, false
++        in
++        state
++        |> Domain.remove_var (Var.of_id ret_id)
++        |> (if summary_found || not return_relevant then Fn.id else add_actuals actuals)
++        |> (if return_relevant || output_relevant then Domain.add_location loc else Fn.id)
++    | Sil.Load {id; e= rhs; _} when Domain.mem (Var.of_id id) state ->
++        state |> Domain.remove_var (Var.of_id id) |> add_exp_vars rhs
++    | Sil.Store {e1= Exp.Lvar lhs; e2= rhs; loc; _} when Domain.mem (Var.of_pvar lhs) state ->
++        state
++        |> Domain.remove_var (Var.of_pvar lhs)
++        |> add_exp_vars rhs
++        |> Domain.add_location loc
++    | Sil.Store {e1= Exp.Lfield (base, _, _); e2= rhs; loc; _}
++      when not (Domain.is_bottom state) ->
++        state |> add_exp_vars base.exp |> add_exp_vars rhs |> Domain.add_location loc
++    | Sil.Store {e1= Exp.Lindex (base, index); e2= rhs; loc; _}
++      when not (Domain.is_bottom state) ->
++        state
++        |> add_exp_vars base
++        |> add_exp_vars index
++        |> add_exp_vars rhs
++        |> Domain.add_location loc
++    | Sil.Store {e1= Exp.Lvar _; _} ->
++        state
++    | Sil.Store {e1= lhs; e2= rhs; loc; _} when not (Domain.is_bottom state) ->
++        state |> add_exp_vars lhs |> add_exp_vars rhs |> Domain.add_location loc
++    | _ ->
++        state
++
++
++  let pp_session_name _node fmt = F.pp_print_string fmt "SymPas backward slice"
++end
++
++module CFG = ProcCfg.OneInstrPerNode (ProcCfg.Backward (ProcCfg.Exceptional))
++module Analyzer = AbstractInterpreter.MakeRPO (TransferFunctions (CFG))
++
++(** Run the first SymPas prototype on one procedure. *)
++let collect_dependencies analysis_data =
++  let proc_desc = analysis_data.InterproceduralAnalysis.proc_desc in
++  let return_var = Var.of_pvar (Procdesc.get_ret_var proc_desc) in
++  Analyzer.compute_post analysis_data ~initial:(Domain.singleton return_var) proc_desc
++
++let formal_summary proc_desc {Domain.frontier; global_dependencies} =
++  let formals =
++    Procdesc.get_pvar_formals proc_desc
++    |> List.filter_mapi ~f:(fun index (pvar, _) ->
++           if VarSet.mem (Var.of_pvar pvar) frontier then Some (SymPasDomain.Formal index) else None)
++  in
++  let globals =
++    VarSet.elements frontier
++    |> List.fold ~init:[] ~f:(fun globals var ->
++           if Var.is_global var then
++             match Var.get_pvar var with
++             | Some pvar ->
++                 let name = F.asprintf "%a" Mangled.pp (Pvar.get_name pvar) in
++                 SymPasDomain.Global name :: globals
++             | None -> globals
++           else globals )
++  in
++  let carried_globals =
++    LocationSet.elements global_dependencies
++    |> List.map ~f:(fun name -> SymPasDomain.Global name)
++  in
++  {SymPasDomain.dependencies=
++     List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency;
++   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= []}
++
++let precise_control_locations proc_desc {Domain.slice_locations} =
++  let postdominators = SymPasControlDependence.compute_postdominators proc_desc in
++  let nodes = Procdesc.get_nodes proc_desc in
++  let is_slice_node node =
++    let location = F.asprintf "%a" Location.pp (Procdesc.Node.get_loc node) in
++    LocationSet.mem location slice_locations
++  in
++  (* The slicing criterion is the procedure return. Its exit node may not have
++     an explicit source location in [slice_locations], so include it as a
++     synthetic target when the backward slice is non-empty. *)
++  let is_controlled_target node =
++    is_slice_node node
++    || (phys_equal node (Procdesc.get_exit_node proc_desc)
++       && not (LocationSet.is_bottom slice_locations))
++  in
++  let controlled_prunes =
++    List.fold nodes ~init:LocationSet.bottom ~f:(fun locations branch ->
++        let controls_slice_node =
++          List.exists nodes ~f:(fun target ->
++              is_controlled_target target
++              && SymPasControlDependence.controls postdominators ~branch ~target)
++        in
++        if controls_slice_node then
++          Instrs.fold (Procdesc.Node.get_instrs branch) ~init:locations ~f:(fun locations instr ->
++              match instr with
++              | Sil.Prune (_, loc, _, _) ->
++                  Domain.add_location loc {Domain.bottom with slice_locations= locations}
++                  |> fun state -> state.Domain.slice_locations
++              | _ ->
++                  locations )
++        else locations )
++  in
++  if not (LocationSet.is_bottom controlled_prunes) then controlled_prunes
++  else
++    (* Some frontend CFGs collapse the return criterion into the exit node and
++       do not expose a usable post-dominator edge. Keep branch locations that
++       are already part of the backward slice as a conservative fallback. *)
++    List.fold nodes ~init:LocationSet.bottom ~f:(fun locations node ->
++        Instrs.fold (Procdesc.Node.get_instrs node) ~init:locations ~f:(fun locations instr ->
++            match instr with
++            | Sil.Prune (_, loc, _, _) ->
++                let loc_string = F.asprintf "%a" Location.pp loc in
++                if LocationSet.mem loc_string slice_locations then LocationSet.add loc_string locations
++                else locations
++            | _ -> locations ) )
++
++
++let rec is_negative_integer_literal = function
++  | Exp.Const (Const.Cint value) ->
++      IntLit.isnegative value
++  | Exp.UnOp (Unop.Neg, Exp.Const (Const.Cint value), _) ->
++      not (IntLit.iszero value)
++  | Exp.Cast (_, exp) ->
++      is_negative_integer_literal exp
++  | _ ->
++      false
++
++
++let has_negative_integer_return proc_desc =
++  let has_direct_return = ref false in
++  let has_negative_store = ref false in
++  Procdesc.get_nodes proc_desc
++  |> List.iter ~f:(fun node ->
++         Instrs.iter (Procdesc.Node.get_instrs node) ~f:(fun instr ->
++             match instr with
++             | Sil.Store {e1= Exp.Lvar lhs; e2; _} when Pvar.is_return lhs ->
++                 has_direct_return := !has_direct_return || is_negative_integer_literal e2
++             | Sil.Store {e2; _} ->
++                 has_negative_store := !has_negative_store || is_negative_integer_literal e2
++             | _ -> () ) ) ;
++  !has_direct_return || !has_negative_store
++
++
++let structured_evidence proc_desc _variables summary controls =
++  let procedure = Procname.to_unique_id (Procdesc.get_proc_name proc_desc) in
++  let location (loc : Location.t) =
++    `Assoc
++      [ ("file", `String (SourceFile.to_string loc.file))
++      ; ("line", `Int loc.line)
++      ; ("column", `Int loc.col) ]
++  in
++  let locations selected =
++    Procdesc.get_nodes proc_desc
++    |> List.concat_map ~f:(fun node ->
++           Instrs.fold (Procdesc.Node.get_instrs node) ~init:[] ~f:(fun locations instr ->
++             let loc = Sil.location_of_instr instr in
++             if LocationSet.mem (F.asprintf "%a" Location.pp loc) selected then loc :: locations
++             else locations))
++    |> List.dedup_and_sort ~compare:Location.compare
++    |> List.map ~f:location
++  in
++  let strings values = `List (List.map values ~f:(fun value -> `String value)) in
++  let dependency_string = function
++      | SymPasDomain.Formal index -> F.asprintf "formal[%d]" index
++      | SymPasDomain.Pointee index -> F.asprintf "memory(formal[%d])" index
++      | SymPasDomain.Global name -> "global:" ^ name
++      | SymPasDomain.Source source -> F.asprintf "%s:%d:%d" source.file source.line source.column
++  in
++  let input_dependencies dependencies =
++    List.filter_map dependencies ~f:(function
++      | SymPasDomain.Source _ -> None
++      | dependency -> Some (dependency_string dependency))
++  in
++  let dependencies = input_dependencies summary.SymPasDomain.dependencies
++  in
++  let source_json (source : SymPasDomain.source) =
++    `Assoc [("procedure", `String source.procedure); ("file", `String source.file);
++            ("line", `Int source.line); ("column", `Int source.column);
++            ("instruction", `String source.instruction); ("event", `String source.event);
++            ("target", Option.value_map source.target ~default:`Null ~f:(fun value -> `String value));
++            ("callee", Option.value_map source.callee ~default:`Null ~f:(fun value -> `String value))]
++  in
++  let sources = List.filter_map summary.SymPasDomain.dependencies ~f:(function
++      | SymPasDomain.Source source -> Some source | _ -> None)
++    |> List.dedup_and_sort ~compare:SymPasDomain.compare_source
++  in
++  let source_locations dependencies =
++    `List (List.filter_map dependencies ~f:(function
++      | SymPasDomain.Source source -> Some (source_json source) | _ -> None))
++  in
++  `Assoc
++    [ ("kind", `String "SYMPAS_SLICE")
++    ; ("procedure", `String procedure)
++    ; ( "criterion"
++      , `Assoc
++          [ ("type", `String "return_value")
++          ; ("target", `String "return")
++          ; ("location", location (Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc))) ] )
++    ; ("data_dependencies", strings dependencies)
++    ; ( "control_dependencies"
++      , `List
++          (List.map (List.filter sources ~f:(fun source -> source.SymPasDomain.control)
++                     |> List.map ~f:source_json) ~f:(fun loc ->
++               `Assoc
++                 [ ("location", loc)
++                 ; ("target", `String "return")
++                 ; ("reason", `String "symbolic_predicate_dependency_conservative") ] )) )
++    ; ("backward_control_candidates", `List (locations controls))
++    ; ( "procedure_summary"
++      , `Assoc
++          [ ("procedure", `String procedure)
++          ; ("return_dependencies", strings dependencies)
++          ; ("return_aliases", strings (input_dependencies summary.SymPasDomain.return_aliases))
++          ; ("global_dependencies", strings (List.filter dependencies
++                ~f:(String.is_prefix ~prefix:"global:")))
++          ; ("memory_dependencies", strings (List.filter dependencies
++                ~f:(String.is_prefix ~prefix:"memory(")))
++          ; ("source_locations", `List (List.map sources ~f:source_json))
++          ; ("control_locations", `List (List.filter sources
++                ~f:(fun source -> source.SymPasDomain.control) |> List.map ~f:source_json))
++          ; ( "outputs", `List (List.map summary.SymPasDomain.outputs
++                ~f:(fun {SymPasDomain.target; dependencies} ->
++                  `Assoc [("target", `String (dependency_string target));
++                  ("dependencies", strings (input_dependencies dependencies));
++                  ("source_locations", source_locations dependencies)])) )
++          ; ("summary_version", `Int 5)
++          ; ("source", `String "infer_sil_symbolic_outputs_and_backward_slice")
++          ; ("memory_dependencies_status", `String "conservative") ] )
++    ; ("call_chain", `List (List.filter_map sources ~f:(fun source ->
++         Option.map source.SymPasDomain.callee ~f:(fun callee ->
++           `Assoc [("caller", `String source.SymPasDomain.procedure); ("callee", `String callee);
++                   ("location", source_json source)]))))
++    ; ("call_chain_status", `String "static_dependency_edges")
++    ; ("alias_evidence", `List (List.map summary.SymPasDomain.alias_evidence
++         ~f:(fun (pointer, targets) ->
++           let symbolic = List.exists targets ~f:(String.is_prefix ~prefix:"pointee:") in
++           `Assoc [("pointer", `String pointer); ("targets", strings targets);
++                   ("status", `String (if List.is_empty targets then "unresolved"
++                     else if symbolic || List.length targets > 1 then "possible" else "confirmed"));
++                   ("reason", `String (if symbolic then "symbolic_formal_memory"
++                     else "flow_sensitive_local_points_to"))])))
++    ; ("alias_limitations", strings ["formal_parameters_may_alias";
++         "aggregate_fields_and_elements_collapsed";
++         "unresolved_writes_weakly_update_tracked_memory";
++         "unresolved_or_escaped_return_aliases_unknown"])
++    ; ("instruction_slices", `List (List.map summary.SymPasDomain.instruction_slices
++         ~f:(fun (source, dependencies) ->
++           `Assoc [("instruction", source_json source);
++                   ("data_dependencies", strings (input_dependencies dependencies));
++                   ("source_locations", source_locations dependencies)])))
++    ; ("source_locations", `List (List.map sources ~f:source_json))
++    ; ("precision", `String "conservative")
++    ; ("analysis_status", `String "partial") ]
++  |> Yojson.Safe.to_string
++
++
++let checker ({InterproceduralAnalysis.proc_desc; err_log} as analysis_data) =
++  match collect_dependencies analysis_data with
++  | None ->
++      None
++  | Some variables when Domain.is_bottom variables ->
++      None
++  | Some variables ->
++      let loc = Procdesc.Node.get_loc (Procdesc.get_exit_node proc_desc) in
++      let backward_summary = formal_summary proc_desc variables in
++      let summary =
++        match SymPasSymbolic.compute analysis_data with
++        | Some symbolic -> symbolic
++        | None -> backward_summary
++      in
++      let precise_controls = precise_control_locations proc_desc variables in
++      let message =
++        F.asprintf
++          "SymPas backward dependencies of the return value: %a; candidate summary: %a; precise control locations: %a; sympas_json=%s"
++          Domain.pp variables SymPasDomain.pp_summary backward_summary LocationSet.pp precise_controls
++          (structured_evidence proc_desc variables summary precise_controls)
++      in
++      Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_slice message ;
++      (* An integral return type alone does not prove an error-code convention.
++         Emit an explicit low-confidence candidate for the Python Agent to
++         display as evidence only; it must not auto-enable a review rule. *)
++      if Typ.is_int (Procdesc.get_ret_type proc_desc) then (
++        let callee = F.asprintf "%a" Procname.pp (Procdesc.get_proc_name proc_desc) in
++        let confidence, evidence =
++          if has_negative_integer_return proc_desc then ("medium", "negative_integer_return")
++          else ("low", "integral_return_type")
++        in
++        let contract_message =
++          F.asprintf
++            "SymPas return contract candidate: callee=%s; kind=status_candidate; confidence=%s; evidence=%s"
++            callee confidence evidence
++        in
++        Reporting.log_issue proc_desc err_log ~loc SymPas IssueType.sympas_return_contract_candidate
++          contract_message ) ;
++      Some summary
+diff --git a/infer/tests/codetoanalyze/c/sympas/Makefile b/infer/tests/codetoanalyze/c/sympas/Makefile
+new file mode 100644
+index 0000000000..c2e1244f48
+--- /dev/null
++++ b/infer/tests/codetoanalyze/c/sympas/Makefile
+@@ -0,0 +1,8 @@
++TESTS_DIR = ../../..
++
++CLANG_OPTIONS = -c
++INFER_OPTIONS = --sympas-only --project-root $(TESTS_DIR)
++INFERPRINT_OPTIONS = --issues-tests
++SOURCES = summary_propagation.c
++
++include $(TESTS_DIR)/clang.make
+diff --git a/infer/tests/codetoanalyze/c/sympas/issues.exp b/infer/tests/codetoanalyze/c/sympas/issues.exp
+new file mode 100644
+index 0000000000..e9a6eba4a4
+--- /dev/null
++++ b/infer/tests/codetoanalyze/c/sympas/issues.exp
+@@ -0,0 +1,17 @@
++codetoanalyze/c/sympas/summary_propagation.c, helper, 3, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, helper, 3, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, unrelated, 2, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, unrelated, 2, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, check, 7, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, check, 7, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, bump, 3, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, bump, 3, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, check_ptr, 2, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, check_ptr, 2, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, choose_first, 4, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, choose_first, 4, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, __infer_globals_initializer_shared_limit, 0, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, add_limit, 2, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, add_limit, 2, SYMPAS_SLICE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, check_global, 2, SYMPAS_RETURN_CONTRACT_CANDIDATE, no_bucket, INFO, []
++codetoanalyze/c/sympas/summary_propagation.c, check_global, 2, SYMPAS_SLICE, no_bucket, INFO, []
+diff --git a/infer/tests/codetoanalyze/c/sympas/summary_propagation.c b/infer/tests/codetoanalyze/c/sympas/summary_propagation.c
+new file mode 100644
+index 0000000000..a208ea4256
+--- /dev/null
++++ b/infer/tests/codetoanalyze/c/sympas/summary_propagation.c
+@@ -0,0 +1,43 @@
++/* Minimal cross-procedure SymPas slicing example. */
++int helper(int x) {
++  int y = x - 10;
++  return y;
++}
++
++int unrelated(int z) {
++  return z * 2;
++}
++
++int check(int a, int b) {
++  int r = helper(a);
++  int unused = unrelated(b);
++  if (r < 0) {
++    return r;
++  }
++  return 0;
++}
++
++int bump(int *p) {
++  *p = *p + 1;
++  return *p;
++}
++
++int check_ptr(int x) {
++  return bump(&x);
++}
++
++int choose_first(int a, int b) {
++  int selected = helper(a);
++  int ignored = helper(b);
++  return selected;
++}
++
++int shared_limit = 10;
++
++int add_limit(int x) {
++  return x + shared_limit;
++}
++
++int check_global(int x) {
++  return add_limit(x);
++}
+diff --git a/infer/src/checkers/SymPasSymbolic.ml b/infer/src/checkers/SymPasSymbolic.ml
+new file mode 100644
+index 0000000000..0b568ef593
+--- /dev/null
++++ b/infer/src/checkers/SymPasSymbolic.ml
+@@ -0,0 +1,282 @@
++(* Symbolic formal/global and output-memory propagation over forward SIL CFGs.
++ * Follows the parameter substitution in SymPas equations (3), (8), (10), (11).
++ * Aggregate locations are collapsed; uncertain writes are weak updates.
++ * Instruction snapshots retain transitive source tokens for criterion queries.
++ * Control and aggregate-memory semantics remain conservative approximations.
++ *)
++open! IStd
++
++module Key = struct
++  type t = string [@@deriving compare]
++  let pp = Format.pp_print_string
++end
++
++module Dependency = struct
++  type t = SymPasDomain.dependency [@@deriving compare]
++  let pp fmt = function
++    | SymPasDomain.Formal i -> Format.fprintf fmt "formal[%d]" i
++    | SymPasDomain.Pointee i -> Format.fprintf fmt "memory(formal[%d])" i
++    | SymPasDomain.Global name -> Format.pp_print_string fmt name
++    | SymPasDomain.Source source -> Format.fprintf fmt "%s:%d" source.file source.line
++end
++
++module Deps = AbstractDomain.FiniteSet (Dependency)
++module Targets = AbstractDomain.FiniteSet (Key)
++module Values = AbstractDomain.Map (Key) (Deps)
++module Aliases = AbstractDomain.Map (Key) (Targets)
++
++type analysis_data =
++  { interprocedural: SymPasDomain.summary InterproceduralAnalysis.t
++  ; postdominators: Procdesc.NodeSet.t Procdesc.NodeMap.t }
++
++let control_key node =
++  "control:" ^ Format.asprintf "%a" Procdesc.Node.pp_id (Procdesc.Node.get_id node)
++
++module Domain = struct
++  type t = {values: Values.t; aliases: Aliases.t; modified: Targets.t; controls: Deps.t; idt: Values.t}
++  let bottom = {values= Values.empty; aliases= Aliases.empty; modified= Targets.empty; controls= Deps.empty; idt= Values.empty}
++  let leq ~lhs ~rhs =
++    Values.leq ~lhs:lhs.values ~rhs:rhs.values
++    && Aliases.leq ~lhs:lhs.aliases ~rhs:rhs.aliases
++    && Targets.leq ~lhs:lhs.modified ~rhs:rhs.modified
++    && Deps.leq ~lhs:lhs.controls ~rhs:rhs.controls
++    && Values.leq ~lhs:lhs.idt ~rhs:rhs.idt
++  let join lhs rhs =
++    {values= Values.join lhs.values rhs.values; aliases= Aliases.join lhs.aliases rhs.aliases;
++     modified= Targets.join lhs.modified rhs.modified; controls= Deps.join lhs.controls rhs.controls;
++     idt= Values.join lhs.idt rhs.idt}
++  let widen ~prev ~next ~num_iters:_ = join prev next
++  let pp fmt state = Values.pp fmt state.values
++end
++
++let id_key id = "id:" ^ Format.asprintf "%a" Ident.pp id
++let pvar_key pvar =
++  if Pvar.is_global pvar then "global:" ^ Pvar.to_string pvar
++  else "local:" ^ Pvar.to_string pvar
++let memory_key i = "pointee:" ^ Int.to_string i
++let get_alias key state = Option.value (Aliases.find_opt key state.Domain.aliases) ~default:Targets.empty
++let get_value key state =
++  match Values.find_opt key state.Domain.values with
++  | Some deps -> deps
++  | None when String.is_prefix key ~prefix:"global:" ->
++      Deps.singleton (SymPasDomain.Global (String.drop_prefix key 7))
++  | None -> Deps.empty
++
++let rec eval state = function
++  | Exp.Var id -> get_value (id_key id) state, get_alias (id_key id) state
++  | Exp.Lvar pvar -> Deps.empty, Targets.singleton (pvar_key pvar)
++  | Exp.Lfield (base, _, _) -> eval state base.exp
++  | Exp.Lindex (base, index) ->
++      let deps, targets = eval state base in
++      let index_deps, _ = eval state index in
++      Deps.join deps index_deps, targets
++  | Exp.Cast (_, exp) | Exp.UnOp (_, exp, _) -> eval state exp
++  | Exp.BinOp (_, lhs, rhs) ->
++      let ld, la = eval state lhs in
++      let rd, ra = eval state rhs in
++      Deps.join ld rd, Targets.join la ra
++  | exp ->
++      let deps = Exp.free_vars exp |> Sequence.fold ~init:Deps.empty
++          ~f:(fun deps id -> Deps.join deps (get_value (id_key id) state)) in
++      deps, Targets.empty
++
++let read state targets =
++  Targets.fold (fun key deps -> Deps.join deps (get_value key state)) targets Deps.empty
++
++let write ?(weak=false) state targets deps aliases =
++  let unresolved = Targets.is_empty targets in
++  let targets = if unresolved then
++      Values.fold (fun key _ targets ->
++        if String.is_prefix key ~prefix:"local:" || String.is_prefix key ~prefix:"global:"
++           || String.is_prefix key ~prefix:"pointee:" then Targets.add key targets else targets)
++        state.Domain.values Targets.empty
++    else targets in
++  let may_alias_formals = Targets.exists (String.is_prefix ~prefix:"pointee:") targets in
++  let targets = if may_alias_formals then
++      Values.fold (fun key _ targets ->
++        if String.is_prefix key ~prefix:"pointee:" then Targets.add key targets else targets)
++        state.Domain.values targets
++    else targets in
++  let strong = not weak && not unresolved && Int.equal (Targets.cardinal targets) 1 in
++  Targets.fold
++    (fun key state ->
++      let deps = Deps.join deps state.Domain.controls in
++      let deps = if strong then deps else Deps.join deps (get_value key state) in
++      let aliases = if strong then aliases else Targets.join aliases (get_alias key state) in
++      {state with Domain.values= Values.add key deps state.Domain.values;
++       aliases= Aliases.add key aliases state.Domain.aliases;
++       modified= Targets.add key state.Domain.modified}) targets state
++
++let instantiate state actuals dependencies =
++  List.fold dependencies ~init:Deps.empty ~f:(fun deps dependency ->
++      let value = match dependency with
++        | SymPasDomain.Global name -> get_value ("global:" ^ name) state
++        | SymPasDomain.Source _ -> Deps.singleton dependency
++        | SymPasDomain.Formal index ->
++            Option.value_map (List.nth actuals index) ~default:Deps.empty
++              ~f:(fun (actual, _) -> fst (eval state actual))
++        | SymPasDomain.Pointee index ->
++            Option.value_map (List.nth actuals index) ~default:Deps.empty
++              ~f:(fun (actual, _) -> let address, targets = eval state actual in
++                Deps.join address (read state targets)) in
++      Deps.join deps value)
++
++module Transfer (CFG : ProcCfg.S) = struct
++  module CFG = CFG
++  module Domain = Domain
++  type nonrec analysis_data = analysis_data
++  let transfer state {interprocedural= {InterproceduralAnalysis.analyze_dependency; proc_desc; _}; postdominators}
++      node _ instr =
++    let target = CFG.Node.underlying_node node in
++    let controls = Procdesc.get_nodes proc_desc |> List.fold ~init:Deps.empty
++        ~f:(fun deps branch ->
++          let controls_target = Procdesc.Node.get_preds branch |> List.exists ~f:(fun parent ->
++              SymPasControlDependence.controls postdominators ~branch:parent ~target) in
++          if controls_target then Deps.join deps (get_value (control_key branch) state) else deps) in
++    let state = {state with Domain.controls= controls} in
++    let loc = Sil.location_of_instr instr in
++    let source = SymPasDomain.Source
++        {procedure= Procname.to_unique_id (Procdesc.get_proc_name proc_desc);
++         file= SourceFile.to_string loc.file; line= loc.line; column= loc.col;
++         instruction= Format.asprintf "%a" CFG.Node.pp_id (CFG.Node.id node);
++         control= (match instr with Sil.Prune _ -> true | _ -> false);
++         callee= (match instr with
++           | Sil.Call (_, Exp.Const (Const.Cfun pname), _, _, _) -> Some (Procname.to_unique_id pname)
++           | Sil.Call _ -> Some "unknown"
++           | _ -> None);
++         target= (match instr with
++           | Sil.Store {e1= Exp.Lvar pvar; _} ->
++               Some (if Pvar.is_return pvar then "return"
++                     else Format.asprintf "%a" Mangled.pp (Pvar.get_name pvar))
++           | Sil.Load {id; _} | Sil.Call ((id, _), _, _, _, _) -> Some (id_key id)
++           | _ -> None);
++         event= (match instr with Sil.Load _ -> "load" | Sil.Store _ -> "store"
++                   | Sil.Call _ -> "call" | Sil.Prune _ -> "control" | _ -> "other")} in
++    let annotate deps = Deps.add source deps in
++    match instr with
++    | Sil.Load {id; e; _} ->
++        let address, targets = eval state e in
++        let deps = annotate (Deps.join address (read state targets)) in
++        let aliases = Targets.fold (fun key aliases -> Targets.join aliases (get_alias key state))
++            targets Targets.empty in
++        {state with Domain.values= Values.add (id_key id) deps state.Domain.values;
++         aliases= Aliases.add (id_key id) aliases state.Domain.aliases}
++    | Sil.Store {e1; e2; _} ->
++        let address, targets = eval state e1 in
++        let deps, aliases = eval state e2 in
++        let aggregate = match e1 with Exp.Lfield _ | Exp.Lindex _ -> true | _ -> false in
++        write ~weak:aggregate state targets (annotate (Deps.join address deps)) aliases
++    | Sil.Prune (condition, _, _, _) ->
++        let deps, _ = eval state condition in
++        let controls = Deps.join (annotate deps) state.Domain.controls in
++        {state with Domain.controls= controls;
++         values= Values.add (control_key target) controls state.Domain.values}
++    | Sil.Call ((id, return_type), callee, actuals, _, _) ->
++        let summary = match callee with
++          | Exp.Const (Const.Cfun pname) ->
++              (match analyze_dependency pname with Ok summary -> Some summary | Error _ -> None)
++          | _ -> None in
++        let return_aliases = match summary with
++          | Some summary -> List.fold summary.SymPasDomain.return_aliases ~init:Targets.empty
++              ~f:(fun targets dependency ->
++                let actual_targets = match dependency with
++                  | SymPasDomain.Pointee i -> Option.value_map (List.nth actuals i)
++                      ~default:Targets.empty ~f:(fun (actual, _) -> snd (eval state actual))
++                  | SymPasDomain.Global name -> Targets.singleton ("global:" ^ name)
++                  | _ -> Targets.empty in
++                Targets.join targets actual_targets)
++          | None -> Targets.empty in
++        let deps, state = match summary with
++          | Some summary ->
++              let next = List.fold summary.SymPasDomain.outputs ~init:state
++                  ~f:(fun next {SymPasDomain.target; dependencies} ->
++                    let targets = match target with
++                      | SymPasDomain.Global name -> Targets.singleton ("global:" ^ name)
++                      | SymPasDomain.Pointee index ->
++                          Option.value_map (List.nth actuals index) ~default:Targets.empty
++                            ~f:(fun (actual, _) -> snd (eval state actual))
++                      | SymPasDomain.Formal _ | SymPasDomain.Source _ -> Targets.empty in
++                    write next targets (annotate (instantiate state actuals dependencies)) Targets.empty) in
++              instantiate state actuals summary.SymPasDomain.dependencies, next
++          | None ->
++              let deps = List.fold actuals ~init:Deps.empty ~f:(fun deps (actual, typ) ->
++                  let value, targets = eval state actual in
++                  let memory = if Typ.is_pointer_to_function typ then Deps.empty
++                    else read state targets in
++                  Deps.join deps (Deps.join value memory)) in
++              let next = List.fold actuals ~init:state ~f:(fun next (actual, typ) ->
++                  if Typ.is_pointer typ && not (Typ.is_pointer_to_function typ) then
++                    let _, targets = eval state actual in
++                    (* Unknown external calls may read and write pointer arguments. *)
++                    let old = read state targets in
++                    write next targets (Deps.join old deps) Targets.empty
++                  else next) in
++              deps, next in
++        let aliases = Aliases.add (id_key id) return_aliases state.Domain.aliases in
++        let aliases = if Typ.is_pointer return_type && Targets.is_empty return_aliases then
++            Aliases.add ("unresolved:" ^ id_key id) Targets.empty aliases else aliases in
++        {state with Domain.values= Values.add (id_key id) (annotate (Deps.join deps state.Domain.controls))
++            state.Domain.values;
++         aliases}
++    | _ -> state
++  let exec_instr state analysis_data node index instr =
++    let next = transfer state analysis_data node index instr in
++    let dependencies = match instr with
++      | Sil.Load {id; _} | Sil.Call ((id, _), _, _, _, _) -> get_value (id_key id) next
++      | Sil.Store {e1; _} -> let _, targets = eval next e1 in read next targets
++      | Sil.Prune _ -> next.Domain.controls
++      | _ -> Deps.empty in
++    let key = Format.asprintf "%a" CFG.Node.pp_id (CFG.Node.id node) in
++    {next with Domain.idt= Values.add key dependencies next.Domain.idt}
++  let pp_session_name _ fmt = Format.pp_print_string fmt "SymPas symbolic outputs"
++end
++
++module CFG = ProcCfg.OneInstrPerNode (ProcCfg.Normal)
++module Analyzer = AbstractInterpreter.MakeRPO (Transfer (CFG))
++
++let compute analysis_data =
++  let proc_desc = analysis_data.InterproceduralAnalysis.proc_desc in
++  let formals = Procdesc.get_pvar_formals proc_desc in
++  let initial = List.foldi formals ~init:Domain.bottom ~f:(fun i state (pvar, typ) ->
++      let key = pvar_key pvar in
++      let state = {state with Domain.values=
++          Values.add key (Deps.singleton (SymPasDomain.Formal i)) state.Domain.values} in
++      if Typ.is_pointer typ then
++        {state with Domain.aliases= Aliases.add key (Targets.singleton (memory_key i)) state.Domain.aliases;
++         values= Values.add (memory_key i) (Deps.singleton (SymPasDomain.Pointee i)) state.Domain.values}
++      else state) in
++  let data = {interprocedural= analysis_data;
++              postdominators= SymPasControlDependence.compute_postdominators proc_desc} in
++  Option.map (Analyzer.compute_post data ~initial proc_desc) ~f:(fun state ->
++      let outputs = List.filter_mapi formals ~f:(fun i (_, typ) ->
++          let key = memory_key i in
++          if Typ.is_pointer typ && Targets.mem key state.Domain.modified then
++            Some {SymPasDomain.target= SymPasDomain.Pointee i;
++                  dependencies= Deps.elements (get_value key state)}
++          else None) in
++      let outputs = Targets.fold (fun key outputs ->
++          if String.is_prefix key ~prefix:"global:" then
++            {SymPasDomain.target= SymPasDomain.Global (String.drop_prefix key 7);
++             dependencies= Deps.elements (get_value key state)} :: outputs
++          else outputs) state.Domain.modified outputs in
++      {SymPasDomain.dependencies=
++         Deps.elements (get_value (pvar_key (Procdesc.get_ret_var proc_desc)) state);
++       outputs;
++       return_aliases= get_alias (pvar_key (Procdesc.get_ret_var proc_desc)) state
++         |> Targets.elements |> List.filter_map ~f:(fun key ->
++             if String.is_prefix key ~prefix:"pointee:" then
++               Some (SymPasDomain.Pointee (Int.of_string (String.drop_prefix key 8)))
++             else if String.is_prefix key ~prefix:"global:" then
++               Some (SymPasDomain.Global (String.drop_prefix key 7))
++             else None);
++       alias_evidence= Aliases.fold (fun key targets evidence ->
++           if Targets.is_empty targets && not (String.is_prefix key ~prefix:"unresolved:") then evidence
++           else (key, Targets.elements targets) :: evidence) state.Domain.aliases [];
++       instruction_slices= Values.fold (fun key dependencies slices ->
++           let source = Deps.elements dependencies |> List.find_map ~f:(function
++               | SymPasDomain.Source source when String.equal source.instruction key
++                   && String.equal source.procedure (Procname.to_unique_id (Procdesc.get_proc_name proc_desc)) -> Some source
++               | _ -> None) in
++           match source with
++           | Some source -> (source, Deps.elements dependencies) :: slices
++           | None -> slices) state.Domain.idt []})
+diff --git a/examples/sympas/test_evaluate_smoke.py b/examples/sympas/test_evaluate_smoke.py
+new file mode 100644
+index 0000000000..aee0171dd6
+--- /dev/null
++++ b/examples/sympas/test_evaluate_smoke.py
+@@ -0,0 +1,24 @@
++"""Regression tests for slice-only evaluation of mixed Infer reports."""
++import unittest
++
++from evaluate_smoke import structure_finding
++
++
++class StructureFindingTest(unittest.TestCase):
++    def test_summary_and_control_locations(self):
++        issue = {
++            "procedure": "helper",
++            "qualifier": (
++                "frontier={ x }; slice_locations={ line 3, column 2 }; "
++                "path_conditions={ }; global_dependencies={ }; "
++                "candidate summary: {formal[0]}; "
++                "precise control locations: { line 2, column 5 }"
++            ),
++        }
++        actual = structure_finding(issue)
++        self.assertEqual(actual["summary"], "formal[0]")
++        self.assertEqual(actual["control_locations"], "line 2, column 5")
++
++
++if __name__ == "__main__":
++    unittest.main()

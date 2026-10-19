@@ -1,25 +1,16 @@
-# SymPas checker
+# SymPas SIL Checker
 
-当前实现是一个基于 Infer 的 **SymPas 风格跨过程程序切片原型**，不是论文实现的逐行复刻。
+这里保存可审阅的 OCaml 源码副本。构建需要使用完整集成补丁，不能只复制
+单个 `sympas.ml`；见 [构建与验证](../docs/build-and-verify.md)。
 
-- 入口：`sympas.ml`
-- 启用方式：`infer --sympas ...`
-- 切片准则：以函数返回变量为起点，在反向 SIL 控制流图中追踪依赖。
-- 数据依赖：支持局部变量、表达式、结构体字段、数组下标、指针解引用、多级指针和全局变量。
-- 控制信息：记录分支条件、条件变量和相关源代码位置，并使用后支配关系计算控制依赖候选。
-- 跨过程：通过 Infer 的 `analyze_dependency` 获取被调用函数摘要，将 `formal[i]` 映射回调用实参，并写回结构化摘要。
-- 递归覆盖：测试包含普通调用、递归调用和互递归调用。
+- `sympas.ml`：入口、兼容的返回值反向切片及 JSON 输出。
+- `SymPasSymbolic.ml`：前向符号依赖、指令快照、调用点实例化、输出内存和返回别名。
+- `SymPasDomain.*`：形参值、形参内存、全局依赖、来源和过程输出摘要。
+- `SymPasControlDependence.*`：CFG 后支配关系，用于限定控制影响。
 
-## 验证命令
+持久化摘要由 Infer Payloads 保存；调用通过 `analyze_dependency` 请求摘要。
+简单局部别名可确定；形参可能别名、多个目标、折叠字段/数组和未知写入采用
+保守近似。递归及互递归用例有终止/依赖断言，尚未证明论文 SCC 最小固定点语义。
 
-```bash
-cd /Users/jadya/Documents/GitHub/desktop-tutorial
-make -C /Users/jadya/Documents/GitHub/infer-sympas-infer infer
-infer-sympas/tests/run_sympas_tests.sh
-```
-
-测试脚本覆盖数据依赖、控制依赖和跨过程摘要，并检查报告中的 `frontier`、切片位置和 `path_conditions`。
-
-## 与论文实现的差距
-
-当前仍未完成论文级的完整路径条件语义、复杂别名/堆对象建模、固定点收敛实验，以及原始数据集上的 Precision/Recall 和性能评估。
+本实现保留 `partial` / `conservative` 状态，完整限制见
+[验收证据](../docs/acceptance-evidence.md)。
