@@ -99,3 +99,34 @@ RUN_DEEPSEEK_LIVE=1 ./draco-sympas/.venv/bin/python -m pytest -q \
 上述 artifacts 路径均相对于 draco-sympas/，默认被 Git 忽略；本记录持久化范围与结论。
 下一步先解决 DeepSeek 服务端认证，再显式运行 live smoke 和 DeepSeek 全链路；
 当前完成的是可验证的 Mock 闭环与真实 API 失败路径，不宣称真实模型效果或完整 SymPas 复现。
+
+### 最新真实 DeepSeek 成功回执（同日更新）
+
+用户替换并保存新的官方 Key 后，认证成功；前述 401 记录保留为历史失败路径。
+本节是当前最新 API 状态：**LIVE PASSED**。
+
+- 官方只读 /models：HTTP 200，可用模型含 deepseek-flash。
+- 显式 RUN_DEEPSEEK_LIVE=1 测试：**1 passed in 2.28s**，一次请求成功。
+- Smoke 原始响应与 usage 已保存；实际 usage 为输入 258、输出 244、总计 502 tokens。
+- 真实 Infer + DeepSeek 全链路：Infer ok，slice_status partial，LLM ok，parse_status ok。
+- 模型结论 likely，引用 5 条实际证据；原始产物/源码验证 verified，errors=[]。
+- 整体 validation 仍为 partially_verified；真实 API 成功不提升切片精度或候选修复证据级别。
+- 全链路实际 usage：输入 4201、输出 4569（含 reasoning 4154）、总计 8770 tokens。
+- 本轮 API smoke 与全链路合计记录 9272 tokens；不是费用估算或一般性能指标。
+- Key 留在本机 .env，被 Git 忽略；未进入命令参数、报告、提交或日志。
+
+本机产物：
+
+- `draco-sympas/artifacts/deepseek-live-20261019T080228273846Z/test_live_deepseek_json0/deepseek-receipt.json`
+- `draco-sympas/artifacts/agent/20261019T080244484138Z/run.json`
+- `draco-sympas/artifacts/agent/20261019T080244484138Z/review.md`
+
+可复现命令：
+
+```bash
+RUN_DEEPSEEK_LIVE=1 ./draco-sympas/.venv/bin/python -m pytest -q draco-sympas/tests/test_deepseek_live.py
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples/agent_demo --env-file .env --llm-provider deepseek
+```
+
+不再需要为当前 Key 继续认证排障；后续扩大独立真实项目标签及行为验证。
