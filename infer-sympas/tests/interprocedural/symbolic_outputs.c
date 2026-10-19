@@ -105,3 +105,9 @@ int sym_unresolved_pointer(int value) {
     *p = value;
     return x;
 }
+int sym_array_pointer_alias(int value) {
+    int array[2] = {0, 0};
+    int *p = array;
+    p[0] = value;
+    return array[0];
+}

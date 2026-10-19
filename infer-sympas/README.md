@@ -29,6 +29,7 @@ python3 -m unittest discover -s infer-sympas/evaluation -p 'test_*.py' -v
 ## 证据与边界
 
 见 [验收证据](docs/acceptance-evidence.md)、
+[阶段验收审计](docs/final-stage-audit.md)、
 [论文算法映射](docs/paper-algorithm-mapping.md) 和
 [当前复现状态](docs/reproduction-status.md)。
 

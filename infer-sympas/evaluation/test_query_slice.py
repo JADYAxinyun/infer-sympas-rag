@@ -50,6 +50,14 @@ class CriteriaIntegrationTest(unittest.TestCase):
     def test_missing_location_is_explicit(self):
         result = select(self.slices, {"type": "file_location", "line": 999999})
         self.assertEqual(result[0]["analysis_status"], "unsupported")
+        self.assertTrue({"procedure", "criterion", "data_dependencies", "control_dependencies",
+                         "procedure_summary", "call_chain", "source_locations", "precision"}
+                        <= result[0].keys())
+
+    def test_return_value_honors_file_filter(self):
+        result = select(self.slices, {"type": "return_value", "procedure": "sym_two_calls",
+                                     "file": "not-the-captured-file.c"})
+        self.assertEqual(result[0]["analysis_status"], "unsupported")
 
     def test_missing_variable_is_rejected(self):
         with self.assertRaises(ValueError):

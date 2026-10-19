@@ -23,3 +23,13 @@ int ctrl_unrelated(int flag, int value) {
     (void)ignored;
     return value;
 }
+
+int ctrl_leaf(int flag, int value) {
+    if (flag) return value;
+    return -1;
+}
+int ctrl_middle(int flag, int value) { return ctrl_leaf(flag, value); }
+int ctrl_top(int flag, int value, int unrelated) {
+    (void)unrelated;
+    return ctrl_middle(flag, value);
+}

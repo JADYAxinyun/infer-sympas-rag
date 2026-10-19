@@ -9,6 +9,23 @@ from pathlib import Path
 TYPES = ("return_value", "variable", "call_site", "finding_variable", "return_point", "file_location")
 
 
+def failure_result(criterion, reason, status="unsupported"):
+    normalized = dict(criterion)
+    normalized.setdefault("target", criterion.get("variable"))
+    normalized.setdefault("location", {key: criterion.get(key) for key in ("file", "line", "column")})
+    return {"kind": "SYMPAS_SLICE", "procedure": criterion.get("procedure", "unknown"),
+            "criterion": normalized, "data_dependencies": [], "control_dependencies": [],
+            "procedure_summary": {}, "call_chain": [], "source_locations": [],
+            "analysis_status": status, "precision": "unknown", "reason": reason}
+
+
+def matches_location(location, criterion):
+    if criterion.get("file") and Path(location["file"]).as_posix() != Path(criterion["file"]).as_posix():
+        return False
+    return all(criterion.get(key) is None or location.get(key) == criterion[key]
+               for key in ("line", "column"))
+
+
 def read_slices(report):
     issues = report if isinstance(report, list) else report.get("issues", [])
     slices = []
@@ -36,15 +53,12 @@ def select(slices, criterion):
         if criterion.get("procedure") not in (None, procedure["procedure"]):
             continue
         if kind == "return_value":
-            selected.append(copy.deepcopy(procedure))
+            if matches_location(procedure["criterion"]["location"], criterion):
+                selected.append(copy.deepcopy(procedure))
             continue
         for snapshot in procedure.get("instruction_slices", []):
             loc = snapshot["instruction"]
-            if criterion.get("file") and Path(loc["file"]).as_posix() != Path(criterion["file"]).as_posix():
-                continue
-            if criterion.get("line") and loc["line"] != criterion["line"]:
-                continue
-            if criterion.get("column") and loc["column"] != criterion["column"]:
+            if not matches_location(loc, criterion):
                 continue
             if kind in ("variable", "finding_variable") and loc.get("target") != criterion["variable"]:
                 continue
@@ -67,9 +81,7 @@ def select(slices, criterion):
                 for source in snapshot["source_locations"] if source.get("event") == "call"]
             selected.append(result)
     if not selected:
-        return [{"kind": "SYMPAS_SLICE", "criterion": criterion,
-                 "analysis_status": "unsupported", "precision": "unknown",
-                 "reason": "no_matching_sil_definition_or_location"}]
+        return [failure_result(criterion, "no_matching_sil_definition_or_location")]
     return selected
 
 
@@ -83,10 +95,15 @@ def main():
     parser.add_argument("--line", type=int)
     parser.add_argument("--column", type=int)
     args = vars(parser.parse_args())
-    report = json.loads(args.pop("report").read_text())
-    result = select(read_slices(report), {key: value for key, value in args.items() if value is not None})
+    report_path = args.pop("report")
+    criterion = {key: value for key, value in args.items() if value is not None}
+    try:
+        report = json.loads(report_path.read_text())
+        result = select(read_slices(report), criterion)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        result = [failure_result(criterion, str(exc), status="failed")]
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 2 if any(item["analysis_status"] == "unsupported" for item in result) else 0
+    return 2 if any(item["analysis_status"] in ("unsupported", "failed") for item in result) else 0
 
 
 if __name__ == "__main__":
