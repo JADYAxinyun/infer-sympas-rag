@@ -127,7 +127,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
                                   let referenced = add_exp_vars actual Domain.bottom in
                                   not (VarSet.is_empty
                                     (VarSet.inter referenced.Domain.frontier state.Domain.frontier)))
-                          | SymPasDomain.Global _ -> true
+                          | SymPasDomain.Global _ | SymPasDomain.Heap _ -> true
                           | SymPasDomain.Formal _ | SymPasDomain.Source _ -> false in
                         if relevant then dependencies else [])
                   in
@@ -143,7 +143,7 @@ module TransferFunctions (CFG : ProcCfg.S) = struct
                         | SymPasDomain.Global name ->
                             {state with Domain.global_dependencies=
                               LocationSet.add name state.Domain.global_dependencies}
-                        | SymPasDomain.Source _ -> state )
+                        | SymPasDomain.Source _ | SymPasDomain.Heap _ -> state )
                   , true, not (List.is_empty output_dependencies) )
               | Error _ ->
                   state, false, false )
@@ -214,7 +214,7 @@ let formal_summary proc_desc {Domain.frontier; global_dependencies} =
   in
   {SymPasDomain.dependencies=
      List.dedup_and_sort (formals @ globals @ carried_globals) ~compare:SymPasDomain.compare_dependency;
-   outputs= []; instruction_slices= []; return_aliases= []; alias_evidence= [];
+   outputs= []; instruction_slices= []; variable_slices= []; return_aliases= []; alias_evidence= [];
    fixpoint_iterations= 0; fixpoint_members= []}
 
 let precise_control_locations proc_desc {Domain.slice_locations} =
@@ -313,6 +313,7 @@ let structured_evidence proc_desc _variables summary controls =
       | SymPasDomain.Formal index -> F.asprintf "formal[%d]" index
       | SymPasDomain.Pointee index -> F.asprintf "memory(formal[%d])" index
       | SymPasDomain.Global name -> "global:" ^ name
+      | SymPasDomain.Heap site -> "heap:" ^ site
       | SymPasDomain.Source source -> F.asprintf "%s:%d:%d" source.file source.line source.column
   in
   let input_dependencies dependencies =
@@ -363,16 +364,18 @@ let structured_evidence proc_desc _variables summary controls =
           ; ("global_dependencies", strings (List.filter dependencies
                 ~f:(String.is_prefix ~prefix:"global:")))
           ; ("memory_dependencies", strings (List.filter dependencies
-                ~f:(String.is_prefix ~prefix:"memory(")))
+                ~f:(fun dependency -> String.is_prefix dependency ~prefix:"memory("
+                    || String.is_prefix dependency ~prefix:"heap:")))
           ; ("source_locations", `List (List.map sources ~f:source_json))
           ; ("control_locations", `List (List.filter sources
                 ~f:(fun source -> source.SymPasDomain.control) |> List.map ~f:source_json))
           ; ( "outputs", `List (List.map summary.SymPasDomain.outputs
-                ~f:(fun {SymPasDomain.target; dependencies} ->
+                ~f:(fun {SymPasDomain.target; dependencies; aliases} ->
                   `Assoc [("target", `String (dependency_string target));
                   ("dependencies", strings (input_dependencies dependencies));
+                  ("aliases", strings (input_dependencies aliases));
                   ("source_locations", source_locations dependencies)])) )
-          ; ("summary_version", `Int 6)
+          ; ("summary_version", `Int 9)
           ; ("fixed_point", `Assoc
                 [("mode", `String (if List.is_empty summary.SymPasDomain.fixpoint_members
                     then "acyclic" else "synchronous_scc_iteration"));
@@ -397,11 +400,21 @@ let structured_evidence proc_desc _variables summary controls =
                      else "flow_sensitive_local_points_to"))])))
     ; ("alias_limitations", strings ["formal_parameters_may_alias";
          "aggregate_fields_and_elements_collapsed";
+         "heap_allocations_summarized_by_site_with_weak_updates";
+         "repeated_calls_to_same_allocation_site_may_alias";
+         "malloc_calloc_successful_dereference_paths_only";
          "unresolved_writes_weakly_update_tracked_memory";
+         "unresolved_reads_include_all_tracked_memory";
          "unresolved_or_escaped_return_aliases_unknown"])
     ; ("instruction_slices", `List (List.map summary.SymPasDomain.instruction_slices
          ~f:(fun (source, dependencies) ->
            `Assoc [("instruction", source_json source);
+                   ("data_dependencies", strings (input_dependencies dependencies));
+                   ("source_locations", source_locations dependencies)])))
+    ; ("variable_slices", `List (List.map summary.SymPasDomain.variable_slices
+         ~f:(fun ((source, variable), dependencies) ->
+           `Assoc [("instruction", source_json source); ("variable", `String variable);
+                   ("state_position", `String "after_instruction");
                    ("data_dependencies", strings (input_dependencies dependencies));
                    ("source_locations", source_locations dependencies)])))
     ; ("source_locations", `List (List.map sources ~f:source_json))

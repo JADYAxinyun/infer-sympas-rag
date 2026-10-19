@@ -1,0 +1,408 @@
+{
+  "stage": "B_pointer_output_aliases_and_unknown_reads",
+  "summary_version": 8,
+  "status": "validated_subset_conservative",
+  "tests": {
+    "passed": 84,
+    "skipped": 1,
+    "reference_subtests_passed": 9,
+    "heap_tests": 3
+  },
+  "heap_results": {
+    "heap_make": {
+      "procedure_summary": {
+        "return_dependencies": [],
+        "return_aliases": [
+          "heap:heap_make:(6: 1)"
+        ],
+        "outputs": [
+          {
+            "target": "heap:heap_make:(6: 1)",
+            "dependencies": [
+              "formal[0]"
+            ],
+            "aliases": []
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_set": {
+      "procedure_summary": {
+        "return_dependencies": [],
+        "return_aliases": [],
+        "outputs": [
+          {
+            "target": "memory(formal[0])",
+            "dependencies": [
+              "formal[0]",
+              "formal[1]"
+            ],
+            "aliases": []
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_get": {
+      "procedure_summary": {
+        "return_dependencies": [
+          "formal[0]",
+          "memory(formal[0])"
+        ],
+        "return_aliases": [],
+        "outputs": [],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_entry": {
+      "procedure_summary": {
+        "return_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "return_aliases": [],
+        "outputs": [
+          {
+            "target": "heap:heap_make:(6: 1)",
+            "dependencies": [
+              "formal[0]",
+              "formal[1]"
+            ],
+            "aliases": []
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_factory_read": {
+      "procedure_summary": {
+        "return_dependencies": [
+          "formal[0]"
+        ],
+        "return_aliases": [],
+        "outputs": [
+          {
+            "target": "heap:heap_make:(6: 1)",
+            "dependencies": [
+              "formal[0]"
+            ],
+            "aliases": []
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_bind": {
+      "procedure_summary": {
+        "return_dependencies": [],
+        "return_aliases": [],
+        "outputs": [
+          {
+            "target": "memory(formal[0])",
+            "dependencies": [
+              "formal[0]",
+              "formal[1]",
+              "memory(formal[0])"
+            ],
+            "aliases": [
+              "memory(formal[1])"
+            ]
+          },
+          {
+            "target": "memory(formal[1])",
+            "dependencies": [
+              "formal[0]",
+              "formal[1]",
+              "memory(formal[1])"
+            ],
+            "aliases": [
+              "memory(formal[1])"
+            ]
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_unknown_read": {
+      "procedure_summary": {
+        "return_dependencies": [
+          "formal[0]"
+        ],
+        "return_aliases": [
+          "heap:heap_make:(6: 1)"
+        ],
+        "outputs": [
+          {
+            "target": "heap:heap_make:(6: 1)",
+            "dependencies": [
+              "formal[0]"
+            ],
+            "aliases": []
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_bound_read": {
+      "procedure_summary": {
+        "return_dependencies": [
+          "formal[0]"
+        ],
+        "return_aliases": [
+          "heap:heap_make:(6: 1)"
+        ],
+        "outputs": [
+          {
+            "target": "heap:heap_make:(6: 1)",
+            "dependencies": [
+              "formal[0]"
+            ],
+            "aliases": [
+              "heap:heap_make:(6: 1)"
+            ]
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    },
+    "heap_factory_twice": {
+      "procedure_summary": {
+        "return_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "return_aliases": [],
+        "outputs": [
+          {
+            "target": "heap:heap_make:(6: 1)",
+            "dependencies": [
+              "formal[0]",
+              "formal[1]"
+            ],
+            "aliases": []
+          }
+        ],
+        "summary_version": 8,
+        "fixed_point": {
+          "mode": "acyclic",
+          "members": [],
+          "iterations": 0,
+          "status": "not_applicable"
+        }
+      },
+      "analysis_status": "partial",
+      "alias_limitations": [
+        "formal_parameters_may_alias",
+        "aggregate_fields_and_elements_collapsed",
+        "heap_allocations_summarized_by_site_with_weak_updates",
+        "repeated_calls_to_same_allocation_site_may_alias",
+        "malloc_calloc_successful_dereference_paths_only",
+        "unresolved_writes_weakly_update_tracked_memory",
+        "unresolved_reads_include_all_tracked_memory",
+        "unresolved_or_escaped_return_aliases_unknown"
+      ]
+    }
+  },
+  "regression_statistics": {
+    "assertions": 95,
+    "passed_assertions": 95,
+    "failed_cases": 0,
+    "missing_dependencies": 0,
+    "extra_dependencies": 2,
+    "total_runtime_seconds": 1.3850082080000004,
+    "total_output_bytes": 724283,
+    "scc_results": [
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_recursive"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_even",
+          "sym_odd"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_first"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_left",
+          "rec_right"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_write"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      }
+    ]
+  },
+  "remaining": [
+    "untracked_external_memory_unknown",
+    "escaping_stack_aliases_unknown",
+    "full_context_sensitive_heap_not_implemented",
+    "program_point_queries",
+    "final_audit_and_publication"
+  ]
+}

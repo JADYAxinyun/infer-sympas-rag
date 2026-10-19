@@ -1,0 +1,496 @@
+{
+  "stage": "D_final_candidate_verification",
+  "base_commit": "6c2bd9cf4d4d573b8d83d1c45ce9c6b6a6317cdf",
+  "summary_version": 9,
+  "verification_scope": "isolated_selected_files_snapshot",
+  "worktree_tests": {
+    "passed": 89,
+    "skipped": 1,
+    "subtests_passed": 13
+  },
+  "snapshot_tests": {
+    "passed": 83,
+    "skipped": 1,
+    "subtests_passed": 13
+  },
+  "excluded_worktree_test_note": "six tests in unrelated untracked Agent evaluation were not included in the release snapshot",
+  "reference": {
+    "reference_provenance": "source_derived_reference_authored_before_tool_comparison",
+    "review_status": "AI_authored_not_independently_human_reviewed",
+    "comparison_unit": "annotated_executable_source_statement",
+    "limitations": "Static non-executable value slicing. Declaration/storage availability is not an executable-slice requirement. Allocations are value/address definitions. All executable statements in these procedures are annotated. No precision or soundness claim beyond this constructed corpus.",
+    "source": "tests/reference/core_reference.c",
+    "command": [
+      "${INFER_BIN}",
+      "--sympas-only",
+      "--results-dir",
+      "<temporary>/out",
+      "--",
+      "clang",
+      "-c",
+      "infer-sympas/tests/reference/core_reference.c",
+      "-o",
+      "<temporary>/case.o"
+    ],
+    "working_directory": "repository_root",
+    "runtime_seconds": 0.365037458,
+    "output_bytes": 276609,
+    "cases": [
+      {
+        "procedure": "ref_assign",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 7,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "A_ASSIGN",
+          "A_RETURN"
+        ],
+        "actual": [
+          "A_ASSIGN",
+          "A_RETURN"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 2,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_overwrite",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 13,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "O_LAST",
+          "O_RETURN"
+        ],
+        "actual": [
+          "O_LAST",
+          "O_RETURN"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 2,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[1]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_branch",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 21,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "B_CONDITION",
+          "B_INITIAL",
+          "B_RETURN",
+          "B_WRITE"
+        ],
+        "actual": [
+          "B_CONDITION",
+          "B_INITIAL",
+          "B_RETURN",
+          "B_WRITE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 4,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "actual_control_dependencies": [
+          {
+            "location": {
+              "procedure": "ref_branch",
+              "file": "infer-sympas/tests/reference/core_reference.c",
+              "line": 17,
+              "column": 9,
+              "instruction": "(6: 1)",
+              "event": "control",
+              "target": null,
+              "callee": null
+            },
+            "target": "return",
+            "reason": "symbolic_predicate_dependency_conservative"
+          }
+        ]
+      },
+      {
+        "procedure": "ref_calls",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 30,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "C_RELEVANT",
+          "C_RETURN",
+          "I_RETURN"
+        ],
+        "actual": [
+          "C_RELEVANT",
+          "C_RETURN",
+          "I_RETURN"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_loop",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 38,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "L_CONDITION",
+          "L_INITIAL",
+          "L_RETURN",
+          "L_UPDATE"
+        ],
+        "actual": [
+          "L_CONDITION",
+          "L_INITIAL",
+          "L_RETURN",
+          "L_UPDATE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 4,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "actual_control_dependencies": [
+          {
+            "location": {
+              "procedure": "ref_loop",
+              "file": "infer-sympas/tests/reference/core_reference.c",
+              "line": 34,
+              "column": 12,
+              "instruction": "(7: 0)",
+              "event": "control",
+              "target": null,
+              "callee": null
+            },
+            "target": "return",
+            "reason": "symbolic_predicate_dependency_conservative"
+          }
+        ]
+      },
+      {
+        "procedure": "ref_local_pointer",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 45,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "P_ALIAS",
+          "P_RETURN",
+          "P_WRITE"
+        ],
+        "actual": [
+          "P_ALIAS",
+          "P_RETURN",
+          "P_WRITE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_array",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 51,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "conservative",
+        "reference": [
+          "R_RETURN",
+          "R_WRITE"
+        ],
+        "actual": [
+          "R_INITIAL",
+          "R_RETURN",
+          "R_WRITE"
+        ],
+        "missing": [],
+        "extra": [
+          "R_INITIAL"
+        ],
+        "precision": 0.6666666666666666,
+        "recall": 1,
+        "f1": 0.8,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_heap",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 57,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "H_ALLOC",
+          "H_RETURN",
+          "H_WRITE"
+        ],
+        "actual": [
+          "H_ALLOC",
+          "H_RETURN",
+          "H_WRITE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_two_heaps",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 65,
+            "column": 1
+          }
+        },
+        "analysis_status": "partial",
+        "mode": "exact",
+        "reference": [
+          "T_ALLOC_P",
+          "T_RETURN",
+          "T_WRITE_P"
+        ],
+        "actual": [
+          "T_ALLOC_P",
+          "T_RETURN",
+          "T_WRITE_P"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      }
+    ],
+    "passed": 9,
+    "total": 9,
+    "ok": true
+  },
+  "statistics": {
+    "assertions": 95,
+    "passed_assertions": 95,
+    "failed_cases": 0,
+    "missing_dependencies": 0,
+    "extra_dependencies": 2,
+    "total_runtime_seconds": 1.2210097919999998,
+    "total_output_bytes": 1452223,
+    "scc_results": [
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_recursive"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_even",
+          "sym_odd"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_first"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_left",
+          "rec_right"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_write"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      }
+    ]
+  },
+  "environment": {
+    "infer": "Infer version v1.3.0-717ee0b36c",
+    "version_status": "ok",
+    "system": "Darwin",
+    "machine": "arm64",
+    "python": "3.9.6"
+  },
+  "reference_micro": {
+    "tp": 26,
+    "fp": 1,
+    "fn": 0,
+    "precision": 0.9629629629629629,
+    "recall": 1,
+    "f1": 0.9811320754716981,
+    "slice_size": 27
+  },
+  "e2e": {
+    "mock": {
+      "infer": "mock",
+      "llm": "ok",
+      "slice": "not_analyzed",
+      "validation": "partially_verified",
+      "findings": 1
+    },
+    "real_infer_mock_llm": {
+      "infer": "ok",
+      "llm": "ok",
+      "slice": "partial",
+      "validation": "partially_verified",
+      "findings": 1
+    },
+    "source_bytes_unchanged": true,
+    "run_and_prompt_artifacts_present": true
+  },
+  "gates": {
+    "diff_check": "passed",
+    "common_credentials_and_local_user_path_scan": "passed",
+    "no_cache_secret_or_oversize_paths": "passed",
+    "infer_typecheck_native_build": "passed",
+    "infer_formal_sympas_test": "passed",
+    "legacy_regression_scenarios": 16,
+    "smoke_scenarios": 7,
+    "legacy_summary_assertions": 8,
+    "patch_fixed_base_forward_and_current_reverse_check": "passed"
+  },
+  "boundaries": "AI-authored source-derived references; no independent human ground truth, LLVM equivalence, paper dataset, general soundness or performance-ratio claim"
+}

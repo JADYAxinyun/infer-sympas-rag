@@ -6,14 +6,16 @@ type dependency =
   | Formal of int
   | Global of string
   | Pointee of int
+  | Heap of string
   | Source of source
 [@@deriving compare, equal]
 
-type output = {target: dependency; dependencies: dependency list}
+type output = {target: dependency; dependencies: dependency list; aliases: dependency list}
 [@@deriving equal]
 
 type summary = {dependencies: dependency list; outputs: output list;
                 instruction_slices: (source * dependency list) list;
+                variable_slices: ((source * string) * dependency list) list;
                 return_aliases: dependency list; alias_evidence: (string * string list) list;
                 fixpoint_iterations: int; fixpoint_members: string list}
 [@@deriving equal]

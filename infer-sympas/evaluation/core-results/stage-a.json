@@ -1,0 +1,446 @@
+{
+  "stage": "A",
+  "base_commit": "c89c01e6dd25c0ff858aa3da00989c663af0f88c",
+  "status": "baseline_with_known_reference_failure",
+  "reference_review_status": "AI_authored_not_independently_human_reviewed",
+  "artifacts_sha256": [
+    "1c06f6f9b86622afb7a2695da7500b64ba80896c151ac3329959ebdbb5e0d7a5  infer-sympas/evaluation/reference_slices.json",
+    "a16cff460c98f52d93cce998812e7791573289398f641aed6616fd6db0077baa  infer-sympas/tests/reference/core_reference.c"
+  ],
+  "baseline_statistics": {
+    "assertions": 95,
+    "passed_assertions": 95,
+    "failed_cases": 0,
+    "missing_dependencies": 0,
+    "extra_dependencies": 3,
+    "total_runtime_seconds": 1.029268876,
+    "total_output_bytes": 711422,
+    "scc_results": [
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_recursive"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_even",
+          "sym_odd"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_first"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_left",
+          "rec_right"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_write"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      }
+    ]
+  },
+  "reference_result": {
+    "reference_provenance": "source_derived_reference_authored_before_tool_comparison",
+    "review_status": "AI_authored_not_independently_human_reviewed",
+    "comparison_unit": "annotated_executable_source_statement",
+    "limitations": "Static non-executable value slicing. Declaration/storage availability is not an executable-slice requirement. Allocations are value/address definitions. All executable statements in these procedures are annotated. No precision or soundness claim beyond this constructed corpus.",
+    "source": "tests/reference/core_reference.c",
+    "command": [
+      "${INFER_BIN}",
+      "--sympas-only",
+      "--results-dir",
+      "<temporary>/out",
+      "--",
+      "clang",
+      "-c",
+      "infer-sympas/tests/reference/core_reference.c",
+      "-o",
+      "<temporary>/case.o"
+    ],
+    "working_directory": "repository_root",
+    "runtime_seconds": 0.688668125,
+    "output_bytes": 126331,
+    "cases": [
+      {
+        "procedure": "ref_assign",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 7,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "A_ASSIGN",
+          "A_RETURN"
+        ],
+        "actual": [
+          "A_ASSIGN",
+          "A_RETURN"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 2,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_overwrite",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 13,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "O_LAST",
+          "O_RETURN"
+        ],
+        "actual": [
+          "O_LAST",
+          "O_RETURN"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 2,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[1]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_branch",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 21,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "B_CONDITION",
+          "B_INITIAL",
+          "B_RETURN",
+          "B_WRITE"
+        ],
+        "actual": [
+          "B_CONDITION",
+          "B_INITIAL",
+          "B_RETURN",
+          "B_WRITE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 4,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "actual_control_dependencies": [
+          {
+            "location": {
+              "procedure": "ref_branch",
+              "file": "infer-sympas/tests/reference/core_reference.c",
+              "line": 17,
+              "column": 9,
+              "instruction": "(6: 1)",
+              "event": "control",
+              "target": null,
+              "callee": null
+            },
+            "target": "return",
+            "reason": "symbolic_predicate_dependency_conservative"
+          }
+        ]
+      },
+      {
+        "procedure": "ref_calls",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 30,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "C_RELEVANT",
+          "C_RETURN",
+          "I_RETURN"
+        ],
+        "actual": [
+          "C_RELEVANT",
+          "C_RETURN",
+          "I_RETURN"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_loop",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 38,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "L_CONDITION",
+          "L_INITIAL",
+          "L_RETURN",
+          "L_UPDATE"
+        ],
+        "actual": [
+          "L_CONDITION",
+          "L_INITIAL",
+          "L_RETURN",
+          "L_UPDATE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 4,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "actual_control_dependencies": [
+          {
+            "location": {
+              "procedure": "ref_loop",
+              "file": "infer-sympas/tests/reference/core_reference.c",
+              "line": 34,
+              "column": 12,
+              "instruction": "(7: 0)",
+              "event": "control",
+              "target": null,
+              "callee": null
+            },
+            "target": "return",
+            "reason": "symbolic_predicate_dependency_conservative"
+          }
+        ]
+      },
+      {
+        "procedure": "ref_local_pointer",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 45,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "P_ALIAS",
+          "P_RETURN",
+          "P_WRITE"
+        ],
+        "actual": [
+          "P_ALIAS",
+          "P_RETURN",
+          "P_WRITE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_array",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 51,
+            "column": 1
+          }
+        },
+        "mode": "conservative",
+        "reference": [
+          "R_RETURN",
+          "R_WRITE"
+        ],
+        "actual": [
+          "R_INITIAL",
+          "R_RETURN",
+          "R_WRITE"
+        ],
+        "missing": [],
+        "extra": [
+          "R_INITIAL"
+        ],
+        "precision": 0.6666666666666666,
+        "recall": 1,
+        "f1": 0.8,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_heap",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 57,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "H_ALLOC",
+          "H_RETURN",
+          "H_WRITE"
+        ],
+        "actual": [
+          "H_ALLOC",
+          "H_RETURN",
+          "H_WRITE"
+        ],
+        "missing": [],
+        "extra": [],
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "slice_size": 3,
+        "ok": true,
+        "actual_data_dependencies": [
+          "formal[0]"
+        ],
+        "actual_control_dependencies": []
+      },
+      {
+        "procedure": "ref_two_heaps",
+        "criterion": {
+          "type": "return_value",
+          "target": "return",
+          "location": {
+            "file": "infer-sympas/tests/reference/core_reference.c",
+            "line": 65,
+            "column": 1
+          }
+        },
+        "mode": "exact",
+        "reference": [
+          "T_ALLOC_P",
+          "T_RETURN",
+          "T_WRITE_P"
+        ],
+        "actual": [
+          "T_ALLOC_P",
+          "T_ALLOC_Q",
+          "T_RETURN",
+          "T_WRITE_P",
+          "T_WRITE_Q"
+        ],
+        "missing": [],
+        "extra": [
+          "T_ALLOC_Q",
+          "T_WRITE_Q"
+        ],
+        "precision": 0.6,
+        "recall": 1,
+        "f1": 0.7499999999999999,
+        "slice_size": 5,
+        "ok": false,
+        "actual_data_dependencies": [
+          "formal[0]",
+          "formal[1]"
+        ],
+        "actual_control_dependencies": []
+      }
+    ],
+    "passed": 8,
+    "total": 9,
+    "ok": false
+  },
+  "remaining": [
+    "allocation_site_heap_objects",
+    "program_point_variable_states",
+    "expanded_control_and_memory_reference_corpus",
+    "final_semantic_audit_and_regression"
+  ]
+}

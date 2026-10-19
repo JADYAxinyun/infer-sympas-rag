@@ -18,6 +18,7 @@
 ```bash
 bash infer-sympas/tests/run_sympas_tests.sh
 python3 infer-sympas/evaluation/evaluate_symbolic.py --output /tmp/sympas-results.json
+python3 infer-sympas/evaluation/evaluate_reference_slices.py --output /tmp/sympas-reference.json
 python3 -m unittest discover -s infer-sympas/evaluation -p 'test_*.py' -v
 ```
 
@@ -32,5 +33,9 @@ python3 -m unittest discover -s infer-sympas/evaluation -p 'test_*.py' -v
 [阶段验收审计](docs/final-stage-audit.md)、
 [论文算法映射](docs/paper-algorithm-mapping.md) 和
 [当前复现状态](docs/reproduction-status.md)。
+
+当前核心增量的验收以 [核心审计](docs/core-reproduction-audit.md) 和
+[逐项语义对照](docs/core-semantics-matrix.md) 为准；早期阶段文档保留为历史。
+参考清单由源码推导、AI 编写，未经独立人工审核，不是论文数据集。
 
 当前只有规则化回归测试，尚未完成基于人工参考切片的完整精度评估。

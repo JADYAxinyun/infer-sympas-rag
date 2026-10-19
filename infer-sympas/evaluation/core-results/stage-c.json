@@ -1,0 +1,650 @@
+{
+  "stage": "C_program_point_variables",
+  "summary_version": 9,
+  "semantics": "after_each_SIL_instruction_including_path_controls",
+  "tests": {
+    "passed": 86,
+    "skipped": 1,
+    "subtests_passed": 13,
+    "infer_typecheck": "passed",
+    "infer_native_build": "passed",
+    "infer_formal_sympas_test": "passed",
+    "smoke_cases": 7,
+    "legacy_summary_assertions": 8,
+    "patch_forward_reverse_check": "passed"
+  },
+  "queries": [
+    {
+      "requested": {
+        "type": "variable",
+        "procedure": "point_value",
+        "variable": "selected",
+        "line": 4
+      },
+      "actual": [
+        {
+          "criterion": {
+            "type": "variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 4,
+              "column": 5,
+              "instruction": "(6: 2)",
+              "event": "store",
+              "target": "observed",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[0]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 5,
+              "instruction": "(8: 2)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 20,
+              "instruction": "(8: 1)",
+              "event": "load",
+              "target": "id:n$4",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        },
+        {
+          "criterion": {
+            "type": "variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 4,
+              "column": 20,
+              "instruction": "(6: 1)",
+              "event": "load",
+              "target": "id:n$2",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[0]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 5,
+              "instruction": "(8: 2)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 20,
+              "instruction": "(8: 1)",
+              "event": "load",
+              "target": "id:n$4",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        }
+      ]
+    },
+    {
+      "requested": {
+        "type": "variable",
+        "procedure": "point_value",
+        "variable": "selected",
+        "line": 6
+      },
+      "actual": [
+        {
+          "criterion": {
+            "type": "variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 6,
+              "column": 5,
+              "instruction": "(4: 0)",
+              "event": "store",
+              "target": "return",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[1]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 5,
+              "instruction": "(5: 1)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 16,
+              "instruction": "(5: 0)",
+              "event": "load",
+              "target": "id:n$1",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        },
+        {
+          "criterion": {
+            "type": "variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 6,
+              "column": 12,
+              "instruction": "(3: 0)",
+              "event": "load",
+              "target": "id:n$0",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[1]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 5,
+              "instruction": "(5: 1)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 16,
+              "instruction": "(5: 0)",
+              "event": "load",
+              "target": "id:n$1",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        }
+      ]
+    },
+    {
+      "requested": {
+        "type": "finding_variable",
+        "procedure": "point_value",
+        "variable": "selected",
+        "line": 4
+      },
+      "actual": [
+        {
+          "criterion": {
+            "type": "finding_variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 4,
+              "column": 5,
+              "instruction": "(6: 2)",
+              "event": "store",
+              "target": "observed",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[0]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 5,
+              "instruction": "(8: 2)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 20,
+              "instruction": "(8: 1)",
+              "event": "load",
+              "target": "id:n$4",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        },
+        {
+          "criterion": {
+            "type": "finding_variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 4,
+              "column": 20,
+              "instruction": "(6: 1)",
+              "event": "load",
+              "target": "id:n$2",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[0]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 5,
+              "instruction": "(8: 2)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 2,
+              "column": 20,
+              "instruction": "(8: 1)",
+              "event": "load",
+              "target": "id:n$4",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        }
+      ]
+    },
+    {
+      "requested": {
+        "type": "finding_variable",
+        "procedure": "point_value",
+        "variable": "selected",
+        "line": 6
+      },
+      "actual": [
+        {
+          "criterion": {
+            "type": "finding_variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 6,
+              "column": 5,
+              "instruction": "(4: 0)",
+              "event": "store",
+              "target": "return",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[1]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 5,
+              "instruction": "(5: 1)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 16,
+              "instruction": "(5: 0)",
+              "event": "load",
+              "target": "id:n$1",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        },
+        {
+          "criterion": {
+            "type": "finding_variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 6,
+              "column": 12,
+              "instruction": "(3: 0)",
+              "event": "load",
+              "target": "id:n$0",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[1]"
+          ],
+          "control_dependencies": [],
+          "source_locations": [
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 5,
+              "instruction": "(5: 1)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_value",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 5,
+              "column": 16,
+              "instruction": "(5: 0)",
+              "event": "load",
+              "target": "id:n$1",
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        }
+      ]
+    },
+    {
+      "requested": {
+        "type": "variable",
+        "procedure": "point_control",
+        "variable": "selected",
+        "line": 12
+      },
+      "actual": [
+        {
+          "criterion": {
+            "type": "variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 12,
+              "column": 9,
+              "instruction": "(8: 0)",
+              "event": "store",
+              "target": "return",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[0]",
+            "formal[1]"
+          ],
+          "control_dependencies": [
+            {
+              "location": {
+                "procedure": "point_control",
+                "file": "infer-sympas/tests/intraprocedural/program_points.c",
+                "line": 11,
+                "column": 9,
+                "instruction": "(5: 1)",
+                "event": "control",
+                "target": null,
+                "callee": null
+              },
+              "target": "selected",
+              "reason": "symbolic_predicate_dependency_conservative"
+            }
+          ],
+          "source_locations": [
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 10,
+              "column": 5,
+              "instruction": "(9: 2)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 10,
+              "column": 20,
+              "instruction": "(9: 1)",
+              "event": "load",
+              "target": "id:n$4",
+              "callee": null
+            },
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 11,
+              "column": 9,
+              "instruction": "(5: 0)",
+              "event": "load",
+              "target": "id:n$0",
+              "callee": null
+            },
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 11,
+              "column": 9,
+              "instruction": "(5: 1)",
+              "event": "control",
+              "target": null,
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        },
+        {
+          "criterion": {
+            "type": "variable",
+            "target": "selected",
+            "location": {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 12,
+              "column": 16,
+              "instruction": "(7: 0)",
+              "event": "load",
+              "target": "id:n$1",
+              "callee": null
+            },
+            "state_position": "after_instruction"
+          },
+          "data_dependencies": [
+            "formal[0]",
+            "formal[1]"
+          ],
+          "control_dependencies": [
+            {
+              "location": {
+                "procedure": "point_control",
+                "file": "infer-sympas/tests/intraprocedural/program_points.c",
+                "line": 11,
+                "column": 9,
+                "instruction": "(5: 1)",
+                "event": "control",
+                "target": null,
+                "callee": null
+              },
+              "target": "selected",
+              "reason": "symbolic_predicate_dependency_conservative"
+            }
+          ],
+          "source_locations": [
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 10,
+              "column": 5,
+              "instruction": "(9: 2)",
+              "event": "store",
+              "target": "selected",
+              "callee": null
+            },
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 10,
+              "column": 20,
+              "instruction": "(9: 1)",
+              "event": "load",
+              "target": "id:n$4",
+              "callee": null
+            },
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 11,
+              "column": 9,
+              "instruction": "(5: 0)",
+              "event": "load",
+              "target": "id:n$0",
+              "callee": null
+            },
+            {
+              "procedure": "point_control",
+              "file": "infer-sympas/tests/intraprocedural/program_points.c",
+              "line": 11,
+              "column": 9,
+              "instruction": "(5: 1)",
+              "event": "control",
+              "target": null,
+              "callee": null
+            }
+          ],
+          "analysis_status": "partial"
+        }
+      ]
+    }
+  ],
+  "statistics": {
+    "assertions": 95,
+    "passed_assertions": 95,
+    "failed_cases": 0,
+    "missing_dependencies": 0,
+    "extra_dependencies": 2,
+    "total_runtime_seconds": 1.487938541,
+    "total_output_bytes": 1452223,
+    "scc_results": [
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_recursive"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/symbolic_outputs.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "sym_even",
+          "sym_odd"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_first"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_left",
+          "rec_right"
+        ],
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "source": "tests/interprocedural/recursive_precision.c",
+        "mode": "synchronous_scc_iteration",
+        "members": [
+          "rec_write"
+        ],
+        "iterations": 3,
+        "status": "converged"
+      }
+    ]
+  },
+  "limitations": [
+    "multiple_SIL_points_on_one_source_line_return_multiple_results",
+    "no_line_variable_queries_select_definitions",
+    "no_arbitrary_expression_criterion",
+    "not_complete_LLVM_SymPas_equivalence"
+  ],
+  "remaining": [
+    "full_semantics_matrix",
+    "reference_evaluation_failure_audit",
+    "independent_snapshot_regression",
+    "GitHub_sync"
+  ]
+}

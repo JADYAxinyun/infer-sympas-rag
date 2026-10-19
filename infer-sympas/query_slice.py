@@ -56,11 +56,14 @@ def select(slices, criterion):
             if matches_location(procedure["criterion"]["location"], criterion):
                 selected.append(copy.deepcopy(procedure))
             continue
-        for snapshot in procedure.get("instruction_slices", []):
+        variable_point = kind in ("variable", "finding_variable") and criterion.get("line") is not None
+        snapshots = (procedure.get("variable_slices", []) if variable_point and "variable_slices" in procedure
+                     else procedure.get("instruction_slices", []))
+        for snapshot in snapshots:
             loc = snapshot["instruction"]
             if not matches_location(loc, criterion):
                 continue
-            if kind in ("variable", "finding_variable") and loc.get("target") != criterion["variable"]:
+            if kind in ("variable", "finding_variable") and snapshot.get("variable", loc.get("target")) != criterion["variable"]:
                 continue
             if kind == "call_site" and loc.get("event") != "call":
                 continue
@@ -68,8 +71,11 @@ def select(slices, criterion):
                 continue
             result = copy.deepcopy(procedure)
             result.pop("instruction_slices", None)
+            result.pop("variable_slices", None)
             result["criterion"] = {"type": kind, "target": criterion.get("variable", loc.get("target")),
                                    "location": loc}
+            if "state_position" in snapshot:
+                result["criterion"]["state_position"] = snapshot["state_position"]
             result["data_dependencies"] = snapshot["data_dependencies"]
             result["source_locations"] = snapshot["source_locations"]
             result["control_dependencies"] = [

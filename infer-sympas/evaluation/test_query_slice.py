@@ -34,6 +34,32 @@ class CriteriaIntegrationTest(unittest.TestCase):
     def test_variable_definition(self):
         self.check_criterion("variable", variable="first", line=6)
 
+    def test_variable_at_use_and_after_overwrite(self):
+        raw = evaluate(os.environ["INFER_BIN"], ROOT / "tests/intraprocedural/program_points.c", {})
+        slices = list(raw["actual_slices"].values())
+        for kind in ("variable", "finding_variable"):
+            for line, dependency in ((4, "formal[0]"), (6, "formal[1]")):
+                with self.subTest(kind=kind, line=line):
+                    results = select(slices, {"type": kind, "procedure": "point_value",
+                                             "variable": "selected", "line": line})
+                    self.assertTrue(all(result["analysis_status"] != "unsupported" for result in results))
+                    self.assertTrue(all(result["data_dependencies"] == [dependency] for result in results))
+                    self.assertTrue(all(result["criterion"]["state_position"] == "after_instruction"
+                                        for result in results))
+
+    def test_variable_point_retains_path_control_and_rejects_missing_variable(self):
+        raw = evaluate(os.environ["INFER_BIN"], ROOT / "tests/intraprocedural/program_points.c", {})
+        slices = list(raw["actual_slices"].values())
+        results = select(slices, {"type": "variable", "procedure": "point_control",
+                                 "variable": "selected", "line": 12})
+        self.assertTrue(all(result["data_dependencies"] == ["formal[0]", "formal[1]"]
+                            for result in results))
+        self.assertTrue(all(any(control["location"]["line"] == 11
+                                for control in result["control_dependencies"]) for result in results))
+        missing = select(slices, {"type": "variable", "procedure": "point_control",
+                                 "variable": "not_declared", "line": 12})
+        self.assertEqual(missing[0]["analysis_status"], "unsupported")
+
     def test_call_site(self):
         self.check_criterion("call_site", line=6)
 

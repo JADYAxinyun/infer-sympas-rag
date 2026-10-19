@@ -17,6 +17,7 @@ module Dependency = struct
     | SymPasDomain.Formal i -> Format.fprintf fmt "formal[%d]" i
     | SymPasDomain.Pointee i -> Format.fprintf fmt "memory(formal[%d])" i
     | SymPasDomain.Global name -> Format.pp_print_string fmt name
+    | SymPasDomain.Heap site -> Format.fprintf fmt "heap:%s" site
     | SymPasDomain.Source source -> Format.fprintf fmt "%s:%d" source.file source.line
 end
 
@@ -24,6 +25,7 @@ module Deps = AbstractDomain.FiniteSet (Dependency)
 module Targets = AbstractDomain.FiniteSet (Key)
 module Values = AbstractDomain.Map (Key) (Deps)
 module Aliases = AbstractDomain.Map (Key) (Targets)
+module Points = AbstractDomain.Map (Key) (Values)
 
 type analysis_data =
   { interprocedural: SymPasDomain.summary InterproceduralAnalysis.t
@@ -33,18 +35,21 @@ let control_key node =
   "control:" ^ Format.asprintf "%a" Procdesc.Node.pp_id (Procdesc.Node.get_id node)
 
 module Domain = struct
-  type t = {values: Values.t; aliases: Aliases.t; modified: Targets.t; controls: Deps.t; idt: Values.t}
-  let bottom = {values= Values.empty; aliases= Aliases.empty; modified= Targets.empty; controls= Deps.empty; idt= Values.empty}
+  type t = {values: Values.t; aliases: Aliases.t; modified: Targets.t; controls: Deps.t;
+            idt: Values.t; points: Points.t}
+  let bottom = {values= Values.empty; aliases= Aliases.empty; modified= Targets.empty;
+                controls= Deps.empty; idt= Values.empty; points= Points.empty}
   let leq ~lhs ~rhs =
     Values.leq ~lhs:lhs.values ~rhs:rhs.values
     && Aliases.leq ~lhs:lhs.aliases ~rhs:rhs.aliases
     && Targets.leq ~lhs:lhs.modified ~rhs:rhs.modified
     && Deps.leq ~lhs:lhs.controls ~rhs:rhs.controls
     && Values.leq ~lhs:lhs.idt ~rhs:rhs.idt
+    && Points.leq ~lhs:lhs.points ~rhs:rhs.points
   let join lhs rhs =
     {values= Values.join lhs.values rhs.values; aliases= Aliases.join lhs.aliases rhs.aliases;
      modified= Targets.join lhs.modified rhs.modified; controls= Deps.join lhs.controls rhs.controls;
-     idt= Values.join lhs.idt rhs.idt}
+     idt= Values.join lhs.idt rhs.idt; points= Points.join lhs.points rhs.points}
   let widen ~prev ~next ~num_iters:_ = join prev next
   let pp fmt state = Values.pp fmt state.values
 end
@@ -80,24 +85,48 @@ let rec eval state = function
           ~f:(fun deps id -> Deps.join deps (get_value (id_key id) state)) in
       deps, Targets.empty
 
+let tracked_memory state =
+  Values.fold (fun key _ targets ->
+      if String.is_prefix key ~prefix:"local:" || String.is_prefix key ~prefix:"global:"
+         || String.is_prefix key ~prefix:"pointee:" || String.is_prefix key ~prefix:"heap:"
+      then Targets.add key targets else targets) state.Domain.values Targets.empty
+
 let read state targets =
+  let targets = if Targets.is_empty targets then tracked_memory state else targets in
   Targets.fold (fun key deps -> Deps.join deps (get_value key state)) targets Deps.empty
+
+let symbolic_aliases targets =
+  Targets.elements targets |> List.filter_map ~f:(fun key ->
+      if String.is_prefix key ~prefix:"pointee:" then
+        Some (SymPasDomain.Pointee (Int.of_string (String.drop_prefix key 8)))
+      else if String.is_prefix key ~prefix:"global:" then
+        Some (SymPasDomain.Global (String.drop_prefix key 7))
+      else if String.is_prefix key ~prefix:"heap:" then
+        Some (SymPasDomain.Heap (String.drop_prefix key 5))
+      else None)
+
+let instantiate_aliases state actuals dependencies =
+  List.fold dependencies ~init:Targets.empty ~f:(fun targets dependency ->
+      let locations = match dependency with
+        | SymPasDomain.Pointee i -> Option.value_map (List.nth actuals i)
+            ~default:Targets.empty ~f:(fun (actual, _) -> snd (eval state actual))
+        | SymPasDomain.Global name -> Targets.singleton ("global:" ^ name)
+        | SymPasDomain.Heap site -> Targets.singleton ("heap:" ^ site)
+        | SymPasDomain.Formal _ | SymPasDomain.Source _ -> Targets.empty in
+      Targets.join targets locations)
 
 let write ?(weak=false) state targets deps aliases =
   let unresolved = Targets.is_empty targets in
-  let targets = if unresolved then
-      Values.fold (fun key _ targets ->
-        if String.is_prefix key ~prefix:"local:" || String.is_prefix key ~prefix:"global:"
-           || String.is_prefix key ~prefix:"pointee:" then Targets.add key targets else targets)
-        state.Domain.values Targets.empty
-    else targets in
+  let targets = if unresolved then tracked_memory state else targets in
   let may_alias_formals = Targets.exists (String.is_prefix ~prefix:"pointee:") targets in
   let targets = if may_alias_formals then
       Values.fold (fun key _ targets ->
         if String.is_prefix key ~prefix:"pointee:" then Targets.add key targets else targets)
         state.Domain.values targets
     else targets in
-  let strong = not weak && not unresolved && Int.equal (Targets.cardinal targets) 1 in
+  let summarized_heap = Targets.exists (String.is_prefix ~prefix:"heap:") targets in
+  let strong = not weak && not unresolved && not summarized_heap
+      && Int.equal (Targets.cardinal targets) 1 in
   Targets.fold
     (fun key state ->
       let deps = Deps.join deps state.Domain.controls in
@@ -111,6 +140,7 @@ let instantiate state actuals dependencies =
   List.fold dependencies ~init:Deps.empty ~f:(fun deps dependency ->
       let value = match dependency with
         | SymPasDomain.Global name -> get_value ("global:" ^ name) state
+        | SymPasDomain.Heap site -> get_value ("heap:" ^ site) state
         | SymPasDomain.Source _ -> Deps.singleton dependency
         | SymPasDomain.Formal index ->
             Option.value_map (List.nth actuals index) ~default:Deps.empty
@@ -157,10 +187,15 @@ module Transfer (CFG : ProcCfg.S) = struct
     | Sil.Load {id; e; _} ->
         let address, targets = eval state e in
         let deps = annotate (Deps.join address (read state targets)) in
+        let unresolved = Targets.is_empty targets in
+        let targets = if unresolved then tracked_memory state else targets in
         let aliases = Targets.fold (fun key aliases -> Targets.join aliases (get_alias key state))
             targets Targets.empty in
+        let alias_map = Aliases.add (id_key id) aliases state.Domain.aliases in
+        let alias_map = if unresolved then
+            Aliases.add ("unresolved:" ^ id_key id) Targets.empty alias_map else alias_map in
         {state with Domain.values= Values.add (id_key id) deps state.Domain.values;
-         aliases= Aliases.add (id_key id) aliases state.Domain.aliases}
+         aliases= alias_map}
     | Sil.Store {e1; e2; _} ->
         let address, targets = eval state e1 in
         let deps, aliases = eval state e2 in
@@ -171,45 +206,53 @@ module Transfer (CFG : ProcCfg.S) = struct
         let controls = Deps.join (annotate deps) state.Domain.controls in
         {state with Domain.controls= controls;
          values= Values.add (control_key target) controls state.Domain.values}
+    | Sil.Call ((id, _), Exp.Const (Const.Cfun pname), actuals, _, _)
+      when Procname.is_c pname
+           && List.mem ["malloc"; "calloc"; "__infer_malloc"] (Procname.get_method pname)
+                ~equal:String.equal
+           && not (Option.exists (Procdesc.load pname) ~f:Procdesc.is_defined) ->
+        let site = "heap:" ^ Procname.to_unique_id (Procdesc.get_proc_name proc_desc)
+                   ^ ":" ^ Format.asprintf "%a" CFG.Node.pp_id (CFG.Node.id node) in
+        let deps = List.fold actuals ~init:state.Domain.controls ~f:(fun deps (actual, _) ->
+            Deps.join deps (fst (eval state actual))) |> annotate in
+        let values = if Values.mem site state.Domain.values then state.Domain.values
+          else Values.add site Deps.empty state.Domain.values in
+        {state with Domain.values= Values.add (id_key id) deps values;
+         aliases= Aliases.add (id_key id) (Targets.singleton site) state.Domain.aliases}
     | Sil.Call ((id, return_type), callee, actuals, _, _) ->
         let summary = match callee with
           | Exp.Const (Const.Cfun pname) ->
               (match analyze_dependency pname with Ok summary -> Some summary | Error _ -> None)
           | _ -> None in
         let return_aliases = match summary with
-          | Some summary -> List.fold summary.SymPasDomain.return_aliases ~init:Targets.empty
-              ~f:(fun targets dependency ->
-                let actual_targets = match dependency with
-                  | SymPasDomain.Pointee i -> Option.value_map (List.nth actuals i)
-                      ~default:Targets.empty ~f:(fun (actual, _) -> snd (eval state actual))
-                  | SymPasDomain.Global name -> Targets.singleton ("global:" ^ name)
-                  | _ -> Targets.empty in
-                Targets.join targets actual_targets)
+          | Some summary -> instantiate_aliases state actuals summary.SymPasDomain.return_aliases
           | None -> Targets.empty in
         let deps, state = match summary with
           | Some summary ->
               let next = List.fold summary.SymPasDomain.outputs ~init:state
-                  ~f:(fun next {SymPasDomain.target; dependencies} ->
+                  ~f:(fun next {SymPasDomain.target; dependencies; aliases} ->
                     let targets = match target with
                       | SymPasDomain.Global name -> Targets.singleton ("global:" ^ name)
+                      | SymPasDomain.Heap site -> Targets.singleton ("heap:" ^ site)
                       | SymPasDomain.Pointee index ->
                           Option.value_map (List.nth actuals index) ~default:Targets.empty
                             ~f:(fun (actual, _) -> snd (eval state actual))
                       | SymPasDomain.Formal _ | SymPasDomain.Source _ -> Targets.empty in
-                    write next targets (annotate (instantiate state actuals dependencies)) Targets.empty) in
+                    write next targets (annotate (instantiate state actuals dependencies))
+                      (instantiate_aliases state actuals aliases)) in
               instantiate state actuals summary.SymPasDomain.dependencies, next
           | None ->
               let deps = List.fold actuals ~init:Deps.empty ~f:(fun deps (actual, typ) ->
                   let value, targets = eval state actual in
-                  let memory = if Typ.is_pointer_to_function typ then Deps.empty
-                    else read state targets in
+                  let memory = if Typ.is_pointer typ && not (Typ.is_pointer_to_function typ)
+                    then read state targets else Deps.empty in
                   Deps.join deps (Deps.join value memory)) in
               let next = List.fold actuals ~init:state ~f:(fun next (actual, typ) ->
                   if Typ.is_pointer typ && not (Typ.is_pointer_to_function typ) then
                     let _, targets = eval state actual in
                     (* Unknown external calls may read and write pointer arguments. *)
                     let old = read state targets in
-                    write next targets (Deps.join old deps) Targets.empty
+                    write ~weak:true next targets (Deps.join old deps) Targets.empty
                   else next) in
               deps, next in
         let aliases = Aliases.add (id_key id) return_aliases state.Domain.aliases in
@@ -227,7 +270,12 @@ module Transfer (CFG : ProcCfg.S) = struct
       | Sil.Prune _ -> next.Domain.controls
       | _ -> Deps.empty in
     let key = Format.asprintf "%a" CFG.Node.pp_id (CFG.Node.id node) in
-    {next with Domain.idt= Values.add key dependencies next.Domain.idt}
+    let variables = Values.fold (fun variable deps values ->
+        if String.is_prefix variable ~prefix:"local:" || String.is_prefix variable ~prefix:"global:"
+        then Values.add variable (Deps.join deps next.Domain.controls) values else values)
+        next.Domain.values Values.empty in
+    {next with Domain.idt= Values.add key dependencies next.Domain.idt;
+     points= Points.add key variables next.Domain.points}
   let pp_session_name _ fmt = Format.pp_print_string fmt "SymPas symbolic outputs"
 end
 
@@ -248,27 +296,41 @@ let compute_once analysis_data =
   let data = {interprocedural= analysis_data;
               postdominators= SymPasControlDependence.compute_postdominators proc_desc} in
   Option.map (Analyzer.compute_post data ~initial proc_desc) ~f:(fun state ->
+      let point_source key = get_value key {state with Domain.values= state.Domain.idt}
+        |> Deps.elements |> List.find_map ~f:(function
+            | SymPasDomain.Source source when String.equal source.instruction key
+                && String.equal source.procedure (Procname.to_unique_id (Procdesc.get_proc_name proc_desc))
+                -> Some source
+            | _ -> None) in
       let outputs = List.filter_mapi formals ~f:(fun i (_, typ) ->
           let key = memory_key i in
           if Typ.is_pointer typ && Targets.mem key state.Domain.modified then
             Some {SymPasDomain.target= SymPasDomain.Pointee i;
-                  dependencies= Deps.elements (get_value key state)}
+                  dependencies= Deps.elements (get_value key state);
+                  aliases= symbolic_aliases (get_alias key state)}
           else None) in
       let outputs = Targets.fold (fun key outputs ->
           if String.is_prefix key ~prefix:"global:" then
             {SymPasDomain.target= SymPasDomain.Global (String.drop_prefix key 7);
-             dependencies= Deps.elements (get_value key state)} :: outputs
+             dependencies= Deps.elements (get_value key state);
+             aliases= symbolic_aliases (get_alias key state)} :: outputs
+          else if String.is_prefix key ~prefix:"heap:" then
+            {SymPasDomain.target= SymPasDomain.Heap (String.drop_prefix key 5);
+             dependencies= Deps.elements (get_value key state);
+             aliases= symbolic_aliases (get_alias key state)} :: outputs
           else outputs) state.Domain.modified outputs in
       {SymPasDomain.dependencies=
          Deps.elements (get_value (pvar_key (Procdesc.get_ret_var proc_desc)) state);
        outputs; fixpoint_iterations= 0; fixpoint_members= [];
-       return_aliases= get_alias (pvar_key (Procdesc.get_ret_var proc_desc)) state
-         |> Targets.elements |> List.filter_map ~f:(fun key ->
-             if String.is_prefix key ~prefix:"pointee:" then
-               Some (SymPasDomain.Pointee (Int.of_string (String.drop_prefix key 8)))
-             else if String.is_prefix key ~prefix:"global:" then
-               Some (SymPasDomain.Global (String.drop_prefix key 7))
-             else None);
+       variable_slices= Points.fold (fun key variables slices ->
+           match point_source key with
+           | None -> slices
+           | Some source -> Values.fold (fun variable dependencies slices ->
+               let variable = String.drop_prefix variable
+                   (if String.is_prefix variable ~prefix:"global:" then 7 else 6) in
+               ((source, variable), Deps.elements dependencies) :: slices) variables slices)
+           state.Domain.points [];
+       return_aliases= symbolic_aliases (get_alias (pvar_key (Procdesc.get_ret_var proc_desc)) state);
        alias_evidence= Aliases.fold (fun key targets evidence ->
            if Targets.is_empty targets && not (String.is_prefix key ~prefix:"unresolved:") then evidence
            else (key, Targets.elements targets) :: evidence) state.Domain.aliases [];

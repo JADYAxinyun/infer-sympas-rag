@@ -1,0 +1,18 @@
+{
+  "provenance": "source_derived_reference_authored_before_tool_comparison",
+  "review_status": "AI_authored_not_independently_human_reviewed",
+  "comparison_unit": "annotated_executable_source_statement",
+  "source": "tests/reference/core_reference.c",
+  "cases": [
+    {"procedure": "ref_assign", "criterion": {"type": "return_value"}, "reference": ["A_ASSIGN", "A_RETURN"], "mode": "exact"},
+    {"procedure": "ref_overwrite", "criterion": {"type": "return_value"}, "reference": ["O_LAST", "O_RETURN"], "mode": "exact"},
+    {"procedure": "ref_branch", "criterion": {"type": "return_value"}, "reference": ["B_INITIAL", "B_CONDITION", "B_WRITE", "B_RETURN"], "mode": "exact"},
+    {"procedure": "ref_calls", "criterion": {"type": "return_value"}, "reference": ["I_RETURN", "C_RELEVANT", "C_RETURN"], "mode": "exact"},
+    {"procedure": "ref_loop", "criterion": {"type": "return_value"}, "reference": ["L_INITIAL", "L_CONDITION", "L_UPDATE", "L_RETURN"], "mode": "exact"},
+    {"procedure": "ref_local_pointer", "criterion": {"type": "return_value"}, "reference": ["P_ALIAS", "P_WRITE", "P_RETURN"], "mode": "exact"},
+    {"procedure": "ref_array", "criterion": {"type": "return_value"}, "reference": ["R_WRITE", "R_RETURN"], "mode": "conservative"},
+    {"procedure": "ref_heap", "criterion": {"type": "return_value"}, "reference": ["H_ALLOC", "H_WRITE", "H_RETURN"], "mode": "exact"},
+    {"procedure": "ref_two_heaps", "criterion": {"type": "return_value"}, "reference": ["T_ALLOC_P", "T_WRITE_P", "T_RETURN"], "mode": "exact"}
+  ],
+  "scope": "Static non-executable value slicing. Declaration/storage availability is not an executable-slice requirement. Allocations are value/address definitions. All executable statements in these procedures are annotated. No precision or soundness claim beyond this constructed corpus."
+}
