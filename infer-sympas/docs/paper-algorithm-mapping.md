@@ -100,4 +100,6 @@ finding 变量定义、返回点、文件行列。Python 仅选择和组织证�
 分支排除。非法 C 通过真实 capture 失败测试。当前运行 42 条摘要/控制断言、
 12 项真实 Infer 集成测试；原有 16 个场景、7 个上游 smoke 保持通过。
 完整构建方法和固定基线补丁见 `build-and-verify.md`；所有适用边界以
-`acceptance-evidence.md` 为当前说明。上述源码尚待 GitHub 同步。
+`acceptance-evidence.md` 为当前说明。上述源码已在提交
+`2f5a99622a10db146b9c33fcb9134f819419ef06` 同步到 GitHub main；上文
+“尚未同步”的描述是先前阶段记录，当前同步证据见 `github-sync.md`。
