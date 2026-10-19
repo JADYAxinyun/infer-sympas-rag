@@ -1,5 +1,32 @@
 # Infer-SymPas-RAG
 
+## 统一审查 Agent（增量集成）
+
+已在现有 Infer / 返回值规则 / 切片 / 本地模型实现上新增统一编排，支持
+`none`、`mock`、`local`、`deepseek`，并保存可追溯证据、模型原始响应与独立验证结果。
+研究型 MVP；不是完整 SymPas/DRaCo 复现或生产级自动修复系统。
+
+```bash
+# 无需 API Key、无需模型下载；C 索引需要 clang
+./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples --target-file unchecked_return.c \
+  --infer-mode mock --llm-provider mock
+# 使用真实 Infer / SIL 切片，LLM 仍为 Mock
+INFER_BIN=/absolute/path/to/infer ./draco-sympas/.venv/bin/python draco-sympas/cli.py review \
+  --repo draco-sympas/examples --target-file unchecked_return.c --llm-provider mock
+```
+
+每次结果写入新的 `draco-sympas/artifacts/agent/<run-id>/`，包括 `run.json`、`review.md`、
+Prompt、context hash、关系检索路径和 Infer 记录。Mock Infer 不制造切片；模型判断不覆盖本地规则。
+候选修复保持独立文件，规则下降和语法检查通过仍只标 `partially_verified`。
+
+- [配置、DeepSeek 与 CLI 快速开始](docs/quickstart.md)
+- [架构、模块复用与证据边界](docs/architecture.md)
+- [四组 smoke 对比和指标定义](docs/evaluation.md)
+- [实际限制](docs/limitations.md)
+- [实施前现状检查](docs/agent-status-before.md)
+
+
 An experimental project that adapts symbolic program slicing to the Infer SIL framework and uses the resulting slices to construct task-relevant contexts for code RAG and LLM-based program analysis.
 
 > 当前仓库仍使用原有的 `desktop-tutorial` 远程仓库地址；项目名称和远程仓库名称将在本地原型稳定后再决定是否调整。
